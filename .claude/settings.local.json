@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude marketplace add anthropics/skills)",
+      "Bash(claude plugin install document-skills@anthropic-agent-skills)",
+      "Bash(claude marketplace list)",
+      "Bash(chmod:*)",
+      "Bash(/Users/didowu/DDRideApp/verify-firebase-backend.sh)",
+      "Bash(ls:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(npm run build:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(while read file)",
+      "Bash(done)",
+      "Skill(dd-app-testing-patterns)",
+      "Bash(./check_missing_files.sh:*)",
+      "Bash(xcrun swift --version)",
+      "Bash(test:*)",
+      "Bash(__NEW_LINE_dfd0e9725b7a14a9__ echo \"\")",
+      "Bash(for comp in LoadingView ErrorView EmptyStateView MemberRow RoleBadge StatusBadge)",
+      "Bash(do)",
+      "Bash(echo:*)",
+      "Bash(for model in User Ride)"
+    ],
+    "deny": []
+  }
+}
