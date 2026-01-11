@@ -21,7 +21,11 @@
       "Bash(for comp in LoadingView ErrorView EmptyStateView MemberRow RoleBadge StatusBadge)",
       "Bash(do)",
       "Bash(echo:*)",
-      "Bash(for model in User Ride)"
+      "Bash(for model in User Ride)",
+      "Bash(npm install:*)",
+      "Bash(npx expo install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run tsc:*)"
     ],
     "deny": []
   }

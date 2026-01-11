@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "rally-react-native",
+    "name": "Rally",
     "slug": "rally-react-native",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,21 +10,65 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#8B1538"
     },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kstate.rally",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Rally needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Rally needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
     },
     "android": {
+      "package": "com.kstate.rally",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#8B1538"
       },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Rally needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
+          "locationWhenInUsePermission": "Rally needs your location to calculate accurate pickup locations and ETAs for designated driver rides."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#8B1538",
+          "sounds": [
+            "./assets/notification-sound.wav"
+          ]
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
     }
   }
 }
