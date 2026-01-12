@@ -27,7 +27,8 @@
       "Bash(npx tsc:*)",
       "Bash(npm run tsc:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
