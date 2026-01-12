@@ -25,7 +25,9 @@
       "Bash(npm install:*)",
       "Bash(npx expo install:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run tsc:*)"
+      "Bash(npm run tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
