@@ -495,17 +495,85 @@ class NotificationService {
   }
 
   /**
-   * Set app icon badge count (iOS)
+   * Set app badge count (iOS only)
    *
    * @param count - Badge count (0 to clear)
    */
   async setBadgeCount(count: number): Promise<void> {
     try {
-      await Notifications.setBadgeCountAsync(count);
-      console.log('🔢 Badge count set to:', count);
+      if (Platform.OS === 'ios') {
+        await Notifications.setBadgeCountAsync(count);
+        console.log('🔢 Badge count set to:', count);
+      } else {
+        console.log('ℹ️ Badge count is iOS-only feature');
+      }
     } catch (error) {
       console.error('❌ Error setting badge count:', error);
     }
+  }
+
+  /**
+   * Get current badge count
+   *
+   * @returns Current badge count (iOS only, returns 0 on Android)
+   */
+  async getBadgeCount(): Promise<number> {
+    try {
+      if (Platform.OS === 'ios') {
+        return await Notifications.getBadgeCountAsync();
+      }
+      return 0;
+    } catch (error) {
+      console.error('❌ Error getting badge count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Clear badge count
+   */
+  async clearBadgeCount(): Promise<void> {
+    await this.setBadgeCount(0);
+  }
+
+  /**
+   * Configure notification behavior
+   * Sets up notification channels and handlers
+   */
+  configureNotifications(): void {
+    // Android notification channels are configured in initialize()
+    // iOS notification settings are requested via requestNotificationPermissions()
+    console.log('✅ Notification configuration complete');
+  }
+
+  /**
+   * Set notification handler for foreground notifications
+   * Controls whether to show notification when app is active
+   */
+  setNotificationHandler(): void {
+    Notifications.setNotificationHandler({
+      handleNotification: async (notification) => {
+        const data = notification.request.content.data as NotificationData;
+
+        // Emergency alerts should always show, even in foreground
+        if (data.type === NotificationType.EMERGENCY_ALERT) {
+          return {
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+          };
+        }
+
+        // Other notifications can be shown based on preference
+        return {
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        };
+      },
+    });
+
+    console.log('✅ Notification handler configured');
   }
 
   /**
@@ -519,28 +587,6 @@ class NotificationService {
     } catch (error) {
       console.error('❌ Error getting scheduled notifications:', error);
       return [];
-    }
-  }
-
-  /**
-   * Check current permission status
-   *
-   * @returns Current permission status
-   */
-  async getPermissionStatus(): Promise<NotificationPermissionStatus> {
-    try {
-      const { status } = await Notifications.getPermissionsAsync();
-
-      if (status === 'granted') {
-        return NotificationPermissionStatus.GRANTED;
-      } else if (status === 'denied') {
-        return NotificationPermissionStatus.DENIED;
-      } else {
-        return NotificationPermissionStatus.UNDETERMINED;
-      }
-    } catch (error) {
-      console.error('❌ Error getting permission status:', error);
-      return NotificationPermissionStatus.UNDETERMINED;
     }
   }
 
@@ -596,6 +642,39 @@ class NotificationService {
 
       default:
         return null;
+    }
+  }
+
+  /**
+   * Handle notification navigation
+   * Navigate to appropriate screen based on notification type
+   *
+   * Notification type handlers:
+   * - ride_assigned → Navigate to DD Dashboard (DD receives this)
+   * - dd_enroute → Navigate to rider's active ride (Rider receives this)
+   * - emergency_alert → Navigate to Admin Alerts (Admin receives this)
+   * - dd_inactive_alert → Navigate to Admin Alerts (Admin receives this)
+   *
+   * @param data - Rally notification data
+   * @param navigation - Navigation object with navigate method
+   */
+  handleNotificationNavigation(
+    data: { type: string; rideId?: string; eventId?: string; title: string; body: string },
+    navigation: any
+  ): void {
+    if (!navigation || !navigation.navigate) {
+      console.error('❌ Navigation object is required');
+      return;
+    }
+
+    const notificationType = data.type as NotificationType;
+    const params = this.getNavigationParams(notificationType, data);
+
+    if (params) {
+      console.log(`📍 Navigating to ${params.screen}`, params.params);
+      navigation.navigate(params.screen, params.params);
+    } else {
+      console.log('ℹ️ No navigation configured for notification type:', data.type);
     }
   }
 
