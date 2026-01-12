@@ -7,12 +7,46 @@
  *
  * Features:
  * - Request and manage notification permissions (iOS & Android)
- * - Register for push notifications and get FCM token
+ * - Register for push notifications and get Expo Push Token (wraps FCM)
  * - Handle received notifications (foreground)
  * - Handle notification taps (background/terminated)
  * - Save FCM token to Firestore
  * - Configure notification channels (Android)
  * - Local notifications support
+ * - Badge count management (iOS only)
+ * - Navigation based on notification type
+ *
+ * Usage Example:
+ * ```typescript
+ * import notificationService, { registerForPushNotifications, setupNotificationListeners } from './services/notificationService';
+ * import { navigationRef } from './navigation';
+ *
+ * // In App.tsx or main component
+ * useEffect(() => {
+ *   // Register for push notifications
+ *   if (currentUser) {
+ *     registerForPushNotifications(currentUser.id);
+ *   }
+ *
+ *   // Set up notification listeners with navigation
+ *   const cleanup = setupNotificationListeners(navigationRef);
+ *
+ *   return cleanup;
+ * }, [currentUser]);
+ * ```
+ *
+ * Cloud Functions Integration:
+ * The Cloud Functions send these notification types:
+ * 1. ride_assigned - When ride is assigned to DD
+ * 2. dd_en_route - When DD marks en route (with ETA)
+ * 3. emergency_alert - When emergency ride is requested
+ * 4. dd_inactive_alert - When DD toggles inactive multiple times
+ *
+ * Platform Differences:
+ * - iOS: Requires user permission for notifications
+ * - Android: Permissions granted by default (SDK 33+)
+ * - iOS: Badge count works
+ * - Android: Badge count may not work on all launchers
  */
 
 import * as Notifications from 'expo-notifications';
@@ -72,15 +106,20 @@ const NOTIFICATION_CHANNELS: NotificationChannel[] = [
  * Configure how notifications are handled when app is in foreground
  */
 Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const data = notification.request.content.data as NotificationData;
+  handleNotification: async (
+    notification
+  ): Promise<Notifications.NotificationBehavior> => {
+    const data = notification.request.content.data;
+    const notifData = data as unknown as NotificationData;
 
     // Emergency alerts should always show, even in foreground
-    if (data.type === NotificationType.EMERGENCY_ALERT) {
+    if (notifData.type === NotificationType.EMERGENCY_ALERT) {
       return {
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
       };
     }
 
@@ -90,6 +129,8 @@ Notifications.setNotificationHandler({
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
     };
   },
 });
@@ -116,7 +157,7 @@ class NotificationService {
       }
 
       // Set up notification listeners
-      this.setupNotificationListeners();
+      this.setupListeners();
 
       console.log('✅ Notification service initialized');
     } catch (error) {
@@ -147,9 +188,9 @@ class NotificationService {
   }
 
   /**
-   * Set up notification event listeners
+   * Set up notification event listeners (private)
    */
-  private setupNotificationListeners(): void {
+  private setupListeners(): void {
     // Listener for notifications received while app is in foreground
     this.notificationListener = Notifications.addNotificationReceivedListener(
       this.handleNotificationReceived.bind(this)
@@ -167,8 +208,9 @@ class NotificationService {
    * Handle notification received in foreground
    */
   private handleNotificationReceived(notification: Notifications.Notification): void {
-    const data = notification.request.content.data as NotificationData;
-    console.log('📬 Notification received (foreground):', data.type);
+    const data = notification.request.content.data;
+    const notifData = data as unknown as NotificationData;
+    console.log('📬 Notification received (foreground):', notifData.type);
 
     // You can add custom logic here, such as:
     // - Update Redux store
@@ -182,11 +224,12 @@ class NotificationService {
    * Navigates to appropriate screen based on notification type
    */
   private handleNotificationResponse(response: Notifications.NotificationResponse): void {
-    const data = response.notification.request.content.data as NotificationData;
-    console.log('👆 Notification tapped:', data.type);
+    const data = response.notification.request.content.data;
+    const notifData = data as unknown as NotificationData;
+    console.log('👆 Notification tapped:', notifData.type);
 
     if (this.navigationCallback) {
-      this.navigationCallback(data.type, data.data);
+      this.navigationCallback(notifData.type, notifData.data);
     }
   }
 
@@ -203,7 +246,7 @@ class NotificationService {
     const subscription = Notifications.addNotificationReceivedListener(callback);
 
     return () => {
-      Notifications.removeNotificationSubscription(subscription);
+      subscription.remove();
     };
   }
 
@@ -220,7 +263,7 @@ class NotificationService {
     const subscription = Notifications.addNotificationResponseReceivedListener(callback);
 
     return () => {
-      Notifications.removeNotificationSubscription(subscription);
+      subscription.remove();
     };
   }
 
@@ -278,7 +321,6 @@ class NotificationService {
             allowAlert: true,
             allowBadge: true,
             allowSound: true,
-            allowAnnouncements: true,
           },
         });
         finalStatus = status;
@@ -552,15 +594,20 @@ class NotificationService {
    */
   setNotificationHandler(): void {
     Notifications.setNotificationHandler({
-      handleNotification: async (notification) => {
-        const data = notification.request.content.data as NotificationData;
+      handleNotification: async (
+        notification
+      ): Promise<Notifications.NotificationBehavior> => {
+        const data = notification.request.content.data;
+        const notifData = data as unknown as NotificationData;
 
         // Emergency alerts should always show, even in foreground
-        if (data.type === NotificationType.EMERGENCY_ALERT) {
+        if (notifData.type === NotificationType.EMERGENCY_ALERT) {
           return {
             shouldShowAlert: true,
             shouldPlaySound: true,
             shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
           };
         }
 
@@ -569,6 +616,8 @@ class NotificationService {
           shouldShowAlert: true,
           shouldPlaySound: true,
           shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
         };
       },
     });
@@ -683,14 +732,39 @@ class NotificationService {
    */
   cleanup(): void {
     if (this.notificationListener) {
-      Notifications.removeNotificationSubscription(this.notificationListener);
+      this.notificationListener.remove();
     }
     if (this.responseListener) {
-      Notifications.removeNotificationSubscription(this.responseListener);
+      this.responseListener.remove();
     }
     console.log('🧹 Notification service cleaned up');
   }
 }
 
 // Export singleton instance
-export default new NotificationService();
+const notificationService = new NotificationService();
+export default notificationService;
+
+// Export bound methods for convenience (maintains 'this' context)
+export const requestNotificationPermissions = notificationService.requestNotificationPermissions.bind(notificationService);
+export const getNotificationPermissionStatus = notificationService.getNotificationPermissionStatus.bind(notificationService);
+export const areNotificationsEnabled = notificationService.areNotificationsEnabled.bind(notificationService);
+export const getExpoPushToken = notificationService.getExpoPushToken.bind(notificationService);
+export const registerForPushNotifications = notificationService.registerForPushNotifications.bind(notificationService);
+export const updateFCMToken = notificationService.updateFCMToken.bind(notificationService);
+export const onTokenRefresh = notificationService.onTokenRefresh.bind(notificationService);
+export const onNotificationReceived = notificationService.onNotificationReceived.bind(notificationService);
+export const onNotificationTap = notificationService.onNotificationTap.bind(notificationService);
+export const setupNotificationListeners = notificationService.setupNotificationListeners.bind(notificationService);
+export const scheduleLocalNotification = notificationService.scheduleLocalNotification.bind(notificationService);
+export const cancelScheduledNotification = notificationService.cancelScheduledNotification.bind(notificationService);
+export const cancelAllScheduledNotifications = notificationService.cancelAllScheduledNotifications.bind(notificationService);
+export const setBadgeCount = notificationService.setBadgeCount.bind(notificationService);
+export const getBadgeCount = notificationService.getBadgeCount.bind(notificationService);
+export const clearBadgeCount = notificationService.clearBadgeCount.bind(notificationService);
+export const configureNotifications = notificationService.configureNotifications.bind(notificationService);
+export const setNotificationHandler = notificationService.setNotificationHandler.bind(notificationService);
+export const getNavigationParams = notificationService.getNavigationParams.bind(notificationService);
+export const handleNotificationNavigation = notificationService.handleNotificationNavigation.bind(notificationService);
+export const initialize = notificationService.initialize.bind(notificationService);
+export const cleanup = notificationService.cleanup.bind(notificationService);

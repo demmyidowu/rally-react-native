@@ -208,19 +208,47 @@ export {
 } from './locationService';
 
 // ============================================================================
-// Notification Service
+// Notification Service - Push Notifications & FCM
 // ============================================================================
 export {
+  // Permission Management
   requestNotificationPermissions,
-  getNotificationPermissions,
+  getNotificationPermissionStatus,
+  areNotificationsEnabled,
+
+  // Token Management
+  getExpoPushToken,
   registerForPushNotifications,
+  updateFCMToken,
+  onTokenRefresh,
+
+  // Notification Handlers
+  onNotificationReceived,
+  onNotificationTap,
+  setupNotificationListeners,
+
+  // Local Notifications
   scheduleLocalNotification,
-  cancelNotification,
-  cancelAllNotifications,
-  handleNotification,
-  handleNotificationResponse,
-  NotificationServiceError,
-  NotificationErrorCode,
-  type NotificationData,
-  type NotificationPermissionsStatus,
+  cancelScheduledNotification,
+  cancelAllScheduledNotifications,
+
+  // Badge Management
+  setBadgeCount,
+  getBadgeCount,
+  clearBadgeCount,
+
+  // Configuration
+  configureNotifications,
+  setNotificationHandler,
+
+  // Navigation
+  handleNotificationNavigation,
+  getNavigationParams,
+
+  // Lifecycle
+  initialize,
+  cleanup,
 } from './notificationService';
+
+// Export default notification service instance
+export { default as notificationService } from './notificationService';
