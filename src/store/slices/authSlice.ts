@@ -1,296 +1,322 @@
 /**
  * Auth Slice
  *
- * Manages authentication state:
- * - User profile
- * - Authentication status
- * - Loading states
+ * Manages authentication state with full integration to authService.
+ * Handles user profile, authentication status, email verification, and loading states.
+ *
+ * Features:
+ * - Sign up with KSU email verification
+ * - Sign in with email/password
+ * - Sign out
+ * - Email verification checking
+ * - User profile updates
+ * - Typed selectors for easy state access
  */
 
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { User, UserDocument } from '../../models/User';
-import { auth, db } from '../../config/firebase';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  sendEmailVerification,
-  User as FirebaseUser,
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { createSlice, createAsyncThunk, createSelector, PayloadAction } from '@reduxjs/toolkit';
+import { User } from '../../models/User';
+import * as authService from '../../services/authService';
+import type { SignUpData } from '../../services/authService';
+import type { RootState } from '../store';
 
 // State interface
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
-  emailVerificationSent: boolean;
+  isEmailVerified: boolean;
 }
 
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
-  loading: false,
+  isLoading: false,
   error: null,
-  emailVerificationSent: false,
+  isEmailVerified: false,
 };
 
-// Helper: Convert Firestore UserDocument to User
-const convertUserDocToUser = (doc: UserDocument): User => ({
-  ...doc,
-  createdAt: doc.createdAt?.toDate?.() || new Date(),
-  updatedAt: doc.updatedAt?.toDate?.() || new Date(),
-});
+// ============================================================================
+// Async Thunks
+// ============================================================================
 
-// Async thunks
-
-// Sign in with email/password
-export const signIn = createAsyncThunk(
-  'auth/signIn',
-  async ({ email, password }: { email: string; password: string }, { rejectWithValue }) => {
+/**
+ * Sign up with email and password
+ * Enforces @ksu.edu email domain and sends verification email
+ */
+export const signUp = createAsyncThunk(
+  'auth/signUp',
+  async (userData: SignUpData, { rejectWithValue }) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-
-      // Verify KSU email domain
-      if (!email.endsWith('@ksu.edu')) {
-        await signOut(auth);
-        throw new Error('Only @ksu.edu email addresses are allowed');
-      }
-
-      // Check if email is verified
-      if (!userCredential.user.emailVerified) {
-        await signOut(auth);
-        throw new Error('Please verify your email before signing in');
-      }
-
-      // Fetch user profile from Firestore
-      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-      if (!userDoc.exists()) {
-        throw new Error('User profile not found');
-      }
-
-      return convertUserDocToUser(userDoc.data() as UserDocument);
+      const result = await authService.signUp(userData);
+      return result.user;
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || 'Sign up failed');
     }
   }
 );
 
-// Sign up with email/password
-export const signUp = createAsyncThunk(
-  'auth/signUp',
+/**
+ * Sign in with email and password
+ * Requires verified email to complete sign in
+ */
+export const signIn = createAsyncThunk(
+  'auth/signIn',
   async (
-    {
-      email,
-      password,
-      firstName,
-      lastName,
-      phoneNumber,
-      classYear,
-    }: {
-      email: string;
-      password: string;
-      firstName: string;
-      lastName: string;
-      phoneNumber: string;
-      classYear: number;
-    },
+    { email, password }: { email: string; password: string },
     { rejectWithValue }
   ) => {
     try {
-      // Verify KSU email domain
-      if (!email.endsWith('@ksu.edu')) {
-        throw new Error('Only @ksu.edu email addresses are allowed');
-      }
-
-      // Create Firebase auth account
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-
-      // Send email verification
-      await sendEmailVerification(userCredential.user);
-
-      // Create user profile in Firestore
-      const userDoc: UserDocument = {
-        uid: userCredential.user.uid,
-        email,
-        firstName,
-        lastName,
-        phoneNumber,
-        role: 'rider', // Default role
-        classYear,
-        isActive: false,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
-      await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
-
-      // Sign out user until email is verified
-      await signOut(auth);
-
-      return {
-        emailVerificationSent: true,
-        message: 'Verification email sent. Please check your inbox.',
-      };
+      const result = await authService.signIn(email, password);
+      return result.user;
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || 'Sign in failed');
     }
   }
 );
 
-// Fetch user profile
-export const fetchUserProfile = createAsyncThunk(
-  'auth/fetchUserProfile',
-  async (uid: string, { rejectWithValue }) => {
+/**
+ * Sign out current user
+ */
+export const signOut = createAsyncThunk(
+  'auth/signOut',
+  async (_, { rejectWithValue }) => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (!userDoc.exists()) {
-        throw new Error('User profile not found');
-      }
-      return convertUserDocToUser(userDoc.data() as UserDocument);
+      await authService.signOut();
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || 'Sign out failed');
     }
   }
 );
 
-// Update user profile
+/**
+ * Check if current user's email is verified
+ * Reloads user from Firebase to get latest status
+ */
+export const checkEmailVerification = createAsyncThunk(
+  'auth/checkEmailVerification',
+  async (_, { rejectWithValue }) => {
+    try {
+      const isVerified = await authService.checkEmailVerification();
+      return isVerified;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to check email verification');
+    }
+  }
+);
+
+/**
+ * Update user profile
+ */
 export const updateUserProfile = createAsyncThunk(
   'auth/updateUserProfile',
   async (
-    { uid, updates }: { uid: string; updates: Partial<User> },
+    { userId, data }: { userId: string; data: Partial<User> },
     { rejectWithValue }
   ) => {
     try {
-      const userRef = doc(db, 'users', uid);
-      await updateDoc(userRef, {
-        ...updates,
-        updatedAt: Timestamp.now(),
-      });
-
-      const updatedDoc = await getDoc(userRef);
-      return convertUserDocToUser(updatedDoc.data() as UserDocument);
+      await authService.updateUserProfile(userId, data);
+      // Fetch updated user
+      const user = await authService.getCurrentUser();
+      return user;
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || 'Failed to update profile');
     }
   }
 );
 
-// Sign out
-export const logout = createAsyncThunk('auth/logout', async (_, { rejectWithValue }) => {
-  try {
-    await signOut(auth);
-  } catch (error: any) {
-    return rejectWithValue(error.message);
+/**
+ * Fetch current user profile
+ */
+export const fetchUserProfile = createAsyncThunk(
+  'auth/fetchUserProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const user = await authService.getCurrentUser();
+      return user;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch user profile');
+    }
   }
-});
+);
 
+// ============================================================================
 // Slice
+// ============================================================================
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    // Set user (for Firebase auth state listener)
+    /**
+     * Set user directly (used by auth state listener)
+     */
     setUser: (state, action: PayloadAction<User | null>) => {
       state.user = action.payload;
       state.isAuthenticated = !!action.payload;
+      state.isEmailVerified = action.payload?.isEmailVerified ?? false;
     },
-    // Clear error
+
+    /**
+     * Clear error
+     */
     clearError: (state) => {
       state.error = null;
     },
-    // Reset email verification flag
-    resetEmailVerification: (state) => {
-      state.emailVerificationSent = false;
-    },
   },
-  extraReducers: (builder) => {
-    // Sign in
-    builder
-      .addCase(signIn.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(signIn.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload;
-        state.isAuthenticated = true;
-        state.error = null;
-      })
-      .addCase(signIn.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      });
 
+  extraReducers: (builder) => {
     // Sign up
     builder
       .addCase(signUp.pending, (state) => {
-        state.loading = true;
+        state.isLoading = true;
         state.error = null;
-        state.emailVerificationSent = false;
       })
       .addCase(signUp.fulfilled, (state, action) => {
-        state.loading = false;
-        state.emailVerificationSent = true;
+        state.isLoading = false;
+        state.user = action.payload;
+        state.isAuthenticated = false; // Not authenticated until email verified
+        state.isEmailVerified = false;
         state.error = null;
       })
       .addCase(signUp.rejected, (state, action) => {
-        state.loading = false;
+        state.isLoading = false;
         state.error = action.payload as string;
-        state.emailVerificationSent = false;
       });
 
-    // Fetch user profile
+    // Sign in
     builder
-      .addCase(fetchUserProfile.pending, (state) => {
-        state.loading = true;
+      .addCase(signIn.pending, (state) => {
+        state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchUserProfile.fulfilled, (state, action) => {
-        state.loading = false;
+      .addCase(signIn.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.user = action.payload;
         state.isAuthenticated = true;
+        state.isEmailVerified = action.payload.isEmailVerified;
         state.error = null;
       })
-      .addCase(fetchUserProfile.rejected, (state, action) => {
-        state.loading = false;
+      .addCase(signIn.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        state.user = null;
+        state.isAuthenticated = false;
+      });
+
+    // Sign out
+    builder
+      .addCase(signOut.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(signOut.fulfilled, (state) => {
+        state.isLoading = false;
+        state.user = null;
+        state.isAuthenticated = false;
+        state.isEmailVerified = false;
+        state.error = null;
+      })
+      .addCase(signOut.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Check email verification
+    builder
+      .addCase(checkEmailVerification.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(checkEmailVerification.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isEmailVerified = action.payload;
+        if (state.user) {
+          state.user.isEmailVerified = action.payload;
+        }
+        if (action.payload) {
+          state.isAuthenticated = true;
+        }
+      })
+      .addCase(checkEmailVerification.rejected, (state, action) => {
+        state.isLoading = false;
         state.error = action.payload as string;
       });
 
     // Update user profile
     builder
       .addCase(updateUserProfile.pending, (state) => {
-        state.loading = true;
+        state.isLoading = true;
         state.error = null;
       })
       .addCase(updateUserProfile.fulfilled, (state, action) => {
-        state.loading = false;
+        state.isLoading = false;
         state.user = action.payload;
         state.error = null;
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
-        state.loading = false;
+        state.isLoading = false;
         state.error = action.payload as string;
       });
 
-    // Logout
+    // Fetch user profile
     builder
-      .addCase(logout.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(logout.fulfilled, (state) => {
-        state.loading = false;
-        state.user = null;
-        state.isAuthenticated = false;
+      .addCase(fetchUserProfile.pending, (state) => {
+        state.isLoading = true;
         state.error = null;
       })
-      .addCase(logout.rejected, (state, action) => {
-        state.loading = false;
+      .addCase(fetchUserProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+        state.isAuthenticated = !!action.payload;
+        state.isEmailVerified = action.payload?.isEmailVerified ?? false;
+        state.error = null;
+      })
+      .addCase(fetchUserProfile.rejected, (state, action) => {
+        state.isLoading = false;
         state.error = action.payload as string;
       });
   },
 });
 
-export const { setUser, clearError, resetEmailVerification } = authSlice.actions;
+// ============================================================================
+// Actions
+// ============================================================================
+
+export const { setUser, clearError } = authSlice.actions;
+
+// ============================================================================
+// Selectors
+// ============================================================================
+
+const selectAuthState = (state: RootState) => state.auth;
+
+export const selectUser = createSelector(
+  [selectAuthState],
+  (auth) => auth.user
+);
+
+export const selectIsAuthenticated = createSelector(
+  [selectAuthState],
+  (auth) => auth.isAuthenticated
+);
+
+export const selectIsLoading = createSelector(
+  [selectAuthState],
+  (auth) => auth.isLoading
+);
+
+export const selectError = createSelector(
+  [selectAuthState],
+  (auth) => auth.error
+);
+
+export const selectIsEmailVerified = createSelector(
+  [selectAuthState],
+  (auth) => auth.isEmailVerified
+);
+
+// ============================================================================
+// Reducer Export
+// ============================================================================
+
 export default authSlice.reducer;

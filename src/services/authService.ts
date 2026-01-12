@@ -1,15 +1,21 @@
 /**
  * Authentication Service
  *
- * Handles all authentication operations for Rally app:
- * - Sign up with K-State email verification
- * - Sign in
- * - Sign out
- * - Password reset
- * - Email verification
- * - Session management
+ * Handles Firebase Authentication with K-State email verification.
+ * Manages user sessions, email verification, and profile creation.
  *
- * CRITICAL: Enforces @ksu.edu email domain for all users
+ * CRITICAL SECURITY RULES:
+ * - MUST enforce @ksu.edu email domain
+ * - MUST send email verification after signup
+ * - MUST validate phone number format (E.164: +1XXXXXXXXXX)
+ * - Default role MUST be 'member' (only admins can promote)
+ * - MUST check email verification before allowing full access
+ *
+ * Password Requirements:
+ * - Minimum 8 characters
+ * - At least one uppercase letter
+ * - At least one lowercase letter
+ * - At least one number
  */
 
 import {
@@ -18,17 +24,47 @@ import {
   signOut as firebaseSignOut,
   sendEmailVerification,
   sendPasswordResetEmail,
+  confirmPasswordReset,
   onAuthStateChanged,
+  updateProfile,
   User as FirebaseUser,
   UserCredential,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { User, UserRole, isKSUEmail, formatPhoneNumber, isValidPhoneNumber } from '../models/User';
 import { AuthError } from '../types/errors';
 
 /**
- * Auth State
+ * Password validation result
+ */
+export interface PasswordValidation {
+  isValid: boolean;
+  errors: string[];
+}
+
+/**
+ * Sign up data interface
+ */
+export interface SignUpData {
+  email: string;
+  password: string;
+  name: string;
+  phoneNumber: string;
+  chapterId: string;
+  classYear: number;
+}
+
+/**
+ * Authentication result
+ */
+export interface AuthResult {
+  userId: string;
+  user: User;
+}
+
+/**
+ * Auth State enumeration
  */
 export enum AuthState {
   SIGNED_OUT = 'SIGNED_OUT',
@@ -43,40 +79,42 @@ export enum AuthState {
 export type AuthStateCallback = (state: AuthState, user: User | null) => void;
 
 /**
- * Sign up new user with K-State email
+ * Sign up with email and password
+ *
+ * Creates a new Firebase Auth user and Firestore user document.
+ * Automatically sends email verification.
  *
  * Steps:
  * 1. Validate KSU email (@ksu.edu)
- * 2. Validate password strength
+ * 2. Validate password strength (8+ chars, uppercase, lowercase, number)
  * 3. Validate phone number format (E.164)
  * 4. Create Firebase Auth user
- * 5. Send email verification
- * 6. Create Firestore user document
+ * 5. Update display name
+ * 6. Send email verification
+ * 7. Create Firestore user document with server timestamps
  *
- * @param email - Must be @ksu.edu email
- * @param password - Minimum 6 characters (Firebase default)
- * @param name - User's full name
- * @param phoneNumber - 10-digit phone number
- * @param chapterId - Chapter ID (set by admin later if empty)
- * @param classYear - 1-4 (freshman to senior)
- * @returns User object
- * @throws AuthError if validation fails
+ * @param userData User registration data
+ * @returns Auth result with user ID and user data
+ * @throws AuthError if validation fails or Firebase operation fails
+ *
+ * CRITICAL: Enforces @ksu.edu email domain and strong password requirements
  */
-export async function signUp(
-  email: string,
-  password: string,
-  name: string,
-  phoneNumber: string,
-  chapterId: string = '',
-  classYear: number = 1
-): Promise<User> {
+export async function signUp(userData: SignUpData): Promise<AuthResult> {
+  const { email, password, name, phoneNumber, chapterId, classYear } = userData;
+
   try {
     // Validate KSU email
     if (!isKSUEmail(email)) {
       throw AuthError.EMAIL_NOT_KSU;
     }
 
-    // Validate phone number format
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      throw new AuthError(passwordValidation.errors[0], 'WEAK_PASSWORD');
+    }
+
+    // Validate and format phone number
     const formattedPhone = formatPhoneNumber(phoneNumber);
     if (!isValidPhoneNumber(phoneNumber)) {
       throw AuthError.INVALID_PHONE_NUMBER;
@@ -89,28 +127,37 @@ export async function signUp(
       password
     );
 
+    // Update display name
+    await updateProfile(userCredential.user, { displayName: name.trim() });
+
     // Send verification email
     await sendEmailVerification(userCredential.user);
 
-    // Create Firestore user document
-    const user: User = {
+    // Create Firestore user document with server timestamps
+    const userDoc = {
       id: userCredential.user.uid,
       name: name.trim(),
       email: email.toLowerCase(),
       phoneNumber: formattedPhone,
-      chapterId: chapterId,
+      chapterId: chapterId || '',
       role: UserRole.MEMBER, // Default role
       classYear: classYear,
       isEmailVerified: false,
-      fcmToken: undefined,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
 
-    await saveUser(user);
+    await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
 
-    console.log('✅ User signed up successfully:', user.email);
-    return user;
+    // Fetch created user to get actual timestamps
+    const createdUser = await loadUser(userCredential.user.uid);
+
+    console.log('✅ User signed up successfully:', createdUser.email);
+
+    return {
+      userId: userCredential.user.uid,
+      user: createdUser,
+    };
   } catch (error: any) {
     if (error instanceof AuthError) {
       throw error;
@@ -120,20 +167,25 @@ export async function signUp(
 }
 
 /**
- * Sign in existing user
+ * Sign in with email and password
+ *
+ * Authenticates user and verifies email is verified.
+ * Loads user profile from Firestore.
  *
  * Steps:
  * 1. Sign in with Firebase Auth
- * 2. Check email verification
- * 3. Reload user to get latest verification status
+ * 2. Reload user to get latest email verification status
+ * 3. Check email verification (must be verified)
  * 4. Load user data from Firestore
+ * 5. Update verification status in Firestore if needed
  *
- * @param email - User's email
- * @param password - User's password
- * @returns User object if email is verified
+ * @param email User's email
+ * @param password User's password
+ * @returns Auth result with user ID and user data
  * @throws AuthError.EMAIL_NOT_VERIFIED if email not verified
+ * @throws AuthError if credentials invalid
  */
-export async function signIn(email: string, password: string): Promise<User> {
+export async function signIn(email: string, password: string): Promise<AuthResult> {
   try {
     // Sign in with Firebase Auth
     const userCredential: UserCredential = await signInWithEmailAndPassword(
@@ -164,7 +216,11 @@ export async function signIn(email: string, password: string): Promise<User> {
     }
 
     console.log('✅ User signed in successfully:', user.email);
-    return user;
+
+    return {
+      userId: userCredential.user.uid,
+      user,
+    };
   } catch (error: any) {
     if (error instanceof AuthError) {
       throw error;
@@ -188,7 +244,9 @@ export async function signOut(): Promise<void> {
 /**
  * Send password reset email
  *
- * @param email - User's email (must be @ksu.edu)
+ * @param email User's email (must be @ksu.edu)
+ * @throws AuthError.EMAIL_NOT_KSU if email is not @ksu.edu
+ * @throws AuthError if send fails
  */
 export async function sendPasswordReset(email: string): Promise<void> {
   try {
@@ -199,6 +257,31 @@ export async function sendPasswordReset(email: string): Promise<void> {
 
     await sendPasswordResetEmail(auth, email.toLowerCase());
     console.log('✅ Password reset email sent to:', email);
+  } catch (error: any) {
+    if (error instanceof AuthError) {
+      throw error;
+    }
+    throw AuthError.fromFirebaseAuthError(error);
+  }
+}
+
+/**
+ * Confirm password reset with code from email
+ *
+ * @param code Reset code from email
+ * @param newPassword New password
+ * @throws AuthError if code invalid or password weak
+ */
+export async function confirmPasswordResetWithCode(code: string, newPassword: string): Promise<void> {
+  try {
+    // Validate new password
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
+      throw new AuthError(validation.errors[0], 'WEAK_PASSWORD');
+    }
+
+    await confirmPasswordReset(auth, code, newPassword);
+    console.log('✅ Password reset successfully');
   } catch (error: any) {
     if (error instanceof AuthError) {
       throw error;
@@ -327,12 +410,192 @@ export async function updateFCMToken(userId: string, fcmToken: string): Promise<
   }
 }
 
+// MARK: - Password Validation
+
+/**
+ * Validate password strength
+ *
+ * Requirements:
+ * - Minimum 8 characters
+ * - At least one uppercase letter
+ * - At least one lowercase letter
+ * - At least one number
+ *
+ * @param password Password to validate
+ * @returns Validation result with errors
+ */
+export function validatePassword(password: string): PasswordValidation {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters');
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+// MARK: - Validation Utilities
+
+/**
+ * Validate KSU email domain
+ *
+ * @param email Email to validate
+ * @returns true if email ends with @ksu.edu (case insensitive)
+ */
+export function validateKSUEmail(email: string): boolean {
+  return isKSUEmail(email);
+}
+
+/**
+ * Validate E.164 phone number format
+ *
+ * Expected format: +1XXXXXXXXXX (12 characters total)
+ *
+ * @param phoneNumber Phone number to validate
+ * @returns true if valid E.164 format
+ */
+export function validatePhoneNumber(phoneNumber: string): boolean {
+  return isValidPhoneNumber(phoneNumber);
+}
+
+// MARK: - Session Management Utilities
+
+/**
+ * Get current Firebase Auth user
+ *
+ * @returns Firebase user or null
+ */
+export function getCurrentFirebaseUser(): FirebaseUser | null {
+  return auth.currentUser;
+}
+
+/**
+ * Get current user ID
+ *
+ * @returns User ID or null
+ */
+export function getCurrentUserId(): string | null {
+  return auth.currentUser?.uid ?? null;
+}
+
+/**
+ * Check if user is authenticated
+ *
+ * @returns true if user is signed in
+ */
+export function isAuthenticated(): boolean {
+  return auth.currentUser !== null;
+}
+
+/**
+ * Check if current user's email is verified
+ *
+ * @returns true if email is verified
+ */
+export function isEmailVerified(): boolean {
+  return auth.currentUser?.emailVerified ?? false;
+}
+
+/**
+ * Reload current user to refresh verification status
+ *
+ * @throws AuthError if no user signed in
+ */
+export async function reloadUser(): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) {
+    throw AuthError.USER_NOT_FOUND;
+  }
+
+  try {
+    await user.reload();
+
+    // Update Firestore if verification status changed
+    if (user.emailVerified) {
+      const userProfile = await loadUser(user.uid);
+      if (!userProfile.isEmailVerified) {
+        await updateDoc(doc(db, 'users', user.uid), {
+          isEmailVerified: true,
+          updatedAt: Timestamp.now(),
+        });
+      }
+    }
+  } catch (error: any) {
+    throw AuthError.fromFirebaseAuthError(error);
+  }
+}
+
+/**
+ * Create user profile in Firestore
+ *
+ * Used internally or can be called if user document needs to be recreated.
+ *
+ * @param userId User ID from Firebase Auth
+ * @param userData User data (excluding id, role, timestamps)
+ * @throws AuthError if creation fails
+ */
+export async function createUserProfile(
+  userId: string,
+  userData: Omit<
+    User,
+    'id' | 'role' | 'isEmailVerified' | 'createdAt' | 'updatedAt' | 'fcmToken'
+  >
+): Promise<void> {
+  try {
+    const userDoc = {
+      id: userId,
+      ...userData,
+      role: UserRole.MEMBER,
+      isEmailVerified: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(doc(db, 'users', userId), userDoc);
+  } catch (error: any) {
+    throw new AuthError('Failed to create user profile', 'CREATE_PROFILE_FAILED');
+  }
+}
+
+/**
+ * Update user profile in Firestore
+ *
+ * @param userId User ID
+ * @param data Partial user data to update
+ * @throws AuthError if update fails
+ */
+export async function updateUserProfile(userId: string, data: Partial<User>): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'users', userId), {
+      ...data,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error: any) {
+    throw new AuthError('Failed to update user profile', 'UPDATE_PROFILE_FAILED');
+  }
+}
+
 // MARK: - Private Helper Functions
 
 /**
  * Load user from Firestore
  *
- * @param uid - User ID
+ * @param uid User ID
  * @returns User object
  * @throws AuthError.USER_NOT_FOUND if user doesn't exist
  */
@@ -357,24 +620,4 @@ async function loadUser(uid: string): Promise<User> {
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };
-}
-
-/**
- * Save user to Firestore
- *
- * @param user - User object
- */
-async function saveUser(user: User): Promise<void> {
-  await setDoc(doc(db, 'users', user.id), {
-    name: user.name,
-    email: user.email,
-    phoneNumber: user.phoneNumber,
-    chapterId: user.chapterId,
-    role: user.role,
-    classYear: user.classYear,
-    isEmailVerified: user.isEmailVerified,
-    fcmToken: user.fcmToken,
-    createdAt: Timestamp.fromDate(user.createdAt),
-    updatedAt: Timestamp.fromDate(user.updatedAt),
-  });
 }

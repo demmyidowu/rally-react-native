@@ -37,9 +37,12 @@ src/
 5. App checks verification status on every sign in
 
 ### 3. Password Security
-- Minimum 6 characters (Firebase default)
+- **Minimum 8 characters** (enforced client-side)
+- **At least one uppercase letter**
+- **At least one lowercase letter**
+- **At least one number**
 - Stored securely by Firebase Authentication
-- Password reset via email
+- Password reset via email with validation
 
 ### 4. Phone Number Validation
 - E.164 format: +15551234567
@@ -76,20 +79,22 @@ function MyComponent() {
 ### Sign Up
 
 ```typescript
-import { signUp } from '../services/authService';
+import { signUp, SignUpData } from '../services/authService';
 
 async function handleSignUp() {
   try {
-    const user = await signUp(
-      'student@ksu.edu',  // email (must be @ksu.edu)
-      'password123',      // password (min 6 chars)
-      'John Doe',         // name
-      '5551234567',       // phone (10 digits)
-      '',                 // chapterId (optional, set by admin later)
-      1                   // classYear (1=freshman, 4=senior)
-    );
+    const userData: SignUpData = {
+      email: 'student@ksu.edu',  // Must be @ksu.edu
+      password: 'SecurePass123',  // Min 8 chars, uppercase, lowercase, number
+      name: 'John Doe',
+      phoneNumber: '5551234567',  // Will be formatted to +15551234567
+      chapterId: '',              // Optional, set by admin later
+      classYear: 1,               // 1=freshman, 2=sophomore, 3=junior, 4=senior
+    };
 
+    const { userId, user } = await signUp(userData);
     console.log('User created:', user);
+    console.log('User ID:', userId);
     // Verification email sent automatically
   } catch (error) {
     console.error('Sign up failed:', error.message);
@@ -104,8 +109,9 @@ import { signIn } from '../services/authService';
 
 async function handleSignIn() {
   try {
-    const user = await signIn('student@ksu.edu', 'password123');
+    const { userId, user } = await signIn('student@ksu.edu', 'SecurePass123');
     console.log('Signed in:', user);
+    console.log('User ID:', userId);
   } catch (error) {
     if (error.code === 'EMAIL_NOT_VERIFIED') {
       // Show email verification prompt
@@ -135,6 +141,8 @@ async function handleCheckVerification() {
 
 ### Password Reset
 
+#### Send Reset Email
+
 ```typescript
 import { sendPasswordReset } from '../services/authService';
 
@@ -144,6 +152,28 @@ async function handlePasswordReset() {
     console.log('Password reset email sent');
   } catch (error) {
     console.error('Password reset failed:', error);
+  }
+}
+```
+
+#### Confirm Password Reset
+
+```typescript
+import { confirmPasswordResetWithCode } from '../services/authService';
+
+async function handleConfirmReset() {
+  try {
+    const code = 'code-from-email';  // From password reset email link
+    const newPassword = 'NewSecurePass123';
+
+    await confirmPasswordResetWithCode(code, newPassword);
+    console.log('Password reset successful');
+  } catch (error) {
+    if (error.code === 'WEAK_PASSWORD') {
+      console.error('Password doesn\'t meet requirements');
+    } else {
+      console.error('Password reset failed:', error);
+    }
   }
 }
 ```
@@ -208,10 +238,15 @@ try {
 - `USER_NOT_FOUND` - User doesn't exist
 - `WRONG_PASSWORD` - Incorrect password
 - `EMAIL_ALREADY_IN_USE` - Email already registered
-- `WEAK_PASSWORD` - Password too weak
+- `WEAK_PASSWORD` - Password too weak (less than 8 chars)
+- `PASSWORD_TOO_SHORT` - Password must be at least 8 characters
+- `PASSWORD_NEEDS_UPPERCASE` - Password must contain uppercase letter
+- `PASSWORD_NEEDS_LOWERCASE` - Password must contain lowercase letter
+- `PASSWORD_NEEDS_NUMBER` - Password must contain a number
 - `INVALID_EMAIL` - Email format invalid
 - `TOO_MANY_REQUESTS` - Rate limited
 - `NETWORK_ERROR` - Network issue
+- `NOT_AUTHENTICATED` - User must be signed in for this operation
 
 ## User Model
 
@@ -233,17 +268,48 @@ interface User {
 
 ## Validation Functions
 
+### Password Validation
+
 ```typescript
-import {
-  isKSUEmail,
-  formatPhoneNumber,
-  isValidPhoneNumber
-} from '../models/User';
+import { validatePassword } from '../services/authService';
+
+const result = validatePassword('mypassword');
+
+if (!result.isValid) {
+  console.error('Password errors:', result.errors);
+  // Example output:
+  // [
+  //   'Password must be at least 8 characters',
+  //   'Password must contain at least one uppercase letter',
+  //   'Password must contain at least one number'
+  // ]
+}
+
+// Valid password example
+const validResult = validatePassword('SecurePass123');
+console.log(validResult.isValid);  // true
+console.log(validResult.errors);   // []
+```
+
+### Email Validation
+
+```typescript
+import { validateKSUEmail } from '../services/authService';
+// Or from models:
+import { isKSUEmail } from '../models/User';
 
 // Email validation
-isKSUEmail('student@ksu.edu');     // true
-isKSUEmail('STUDENT@KSU.EDU');     // true (case insensitive)
-isKSUEmail('student@gmail.com');   // false
+validateKSUEmail('student@ksu.edu');     // true
+validateKSUEmail('STUDENT@KSU.EDU');     // true (case insensitive)
+validateKSUEmail('student@gmail.com');   // false
+```
+
+### Phone Number Validation
+
+```typescript
+import { validatePhoneNumber } from '../services/authService';
+// Or from models:
+import { formatPhoneNumber, isValidPhoneNumber } from '../models/User';
 
 // Phone number formatting
 formatPhoneNumber('5551234567');   // '+15551234567'
@@ -251,8 +317,63 @@ formatPhoneNumber('15551234567');  // '+15551234567'
 formatPhoneNumber('+15551234567'); // '+15551234567'
 
 // Phone number validation
-isValidPhoneNumber('5551234567');  // true
-isValidPhoneNumber('555123');      // false (too short)
+validatePhoneNumber('+15551234567');  // true
+isValidPhoneNumber('5551234567');     // true
+isValidPhoneNumber('555123');         // false (too short)
+```
+
+### Session Management Utilities
+
+```typescript
+import {
+  isAuthenticated,
+  isEmailVerified,
+  getCurrentUserId,
+  getCurrentFirebaseUser,
+  reloadUser
+} from '../services/authService';
+
+// Check if user is signed in
+if (isAuthenticated()) {
+  const userId = getCurrentUserId();
+  console.log('User ID:', userId);
+}
+
+// Check email verification
+if (isEmailVerified()) {
+  console.log('Email is verified');
+}
+
+// Get Firebase user object
+const firebaseUser = getCurrentFirebaseUser();
+console.log('Email:', firebaseUser?.email);
+
+// Refresh verification status
+await reloadUser();
+```
+
+### User Profile Management
+
+```typescript
+import {
+  createUserProfile,
+  updateUserProfile
+} from '../services/authService';
+
+// Create profile (usually done internally during signup)
+await createUserProfile('user_id', {
+  name: 'John Doe',
+  email: 'student@ksu.edu',
+  phoneNumber: '+15551234567',
+  chapterId: 'chapter_id',
+  classYear: 2,
+});
+
+// Update profile
+await updateUserProfile('user_id', {
+  name: 'John Smith',
+  classYear: 3,
+});
 ```
 
 ## Firebase Configuration

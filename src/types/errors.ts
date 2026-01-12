@@ -48,8 +48,28 @@ export class AuthError extends AppError {
   );
 
   static WEAK_PASSWORD = new AuthError(
-    'Password must be at least 6 characters',
+    'Password must be at least 8 characters',
     'WEAK_PASSWORD'
+  );
+
+  static PASSWORD_TOO_SHORT = new AuthError(
+    'Password must be at least 8 characters',
+    'PASSWORD_TOO_SHORT'
+  );
+
+  static PASSWORD_NEEDS_UPPERCASE = new AuthError(
+    'Password must contain at least one uppercase letter',
+    'PASSWORD_NEEDS_UPPERCASE'
+  );
+
+  static PASSWORD_NEEDS_LOWERCASE = new AuthError(
+    'Password must contain at least one lowercase letter',
+    'PASSWORD_NEEDS_LOWERCASE'
+  );
+
+  static PASSWORD_NEEDS_NUMBER = new AuthError(
+    'Password must contain at least one number',
+    'PASSWORD_NEEDS_NUMBER'
   );
 
   static INVALID_EMAIL = new AuthError(
@@ -65,6 +85,11 @@ export class AuthError extends AppError {
   static NETWORK_ERROR = new AuthError(
     'Network error. Please check your connection.',
     'NETWORK_ERROR'
+  );
+
+  static NOT_AUTHENTICATED = new AuthError(
+    'You must be signed in to perform this action',
+    'NOT_AUTHENTICATED'
   );
 
   static UNKNOWN = (message: string) =>
