@@ -9,3 +9,4 @@ export * from './Ride';
 export * from './DDAssignment';
 export * from './AdminAlert';
 export * from './YearTransitionLog';
+export * from './AdminTransitionLog';
