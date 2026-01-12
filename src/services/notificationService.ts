@@ -16,9 +16,9 @@
  */
 
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { doc, updateDoc } from 'firebase/firestore';
+import Constants from 'expo-constants';
+import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import {
   NotificationType,
@@ -191,19 +191,81 @@ class NotificationService {
   }
 
   /**
+   * Handle notification received while app is in foreground
+   * Public wrapper for attaching custom handlers
+   *
+   * @param callback - Function called when notification is received
+   * @returns Cleanup function to remove listener
+   */
+  onNotificationReceived(
+    callback: (notification: Notifications.Notification) => void
+  ): () => void {
+    const subscription = Notifications.addNotificationReceivedListener(callback);
+
+    return () => {
+      Notifications.removeNotificationSubscription(subscription);
+    };
+  }
+
+  /**
+   * Handle notification tap (user tapped notification)
+   * Navigate to appropriate screen based on notification data
+   *
+   * @param callback - Function called when notification is tapped
+   * @returns Cleanup function to remove listener
+   */
+  onNotificationTap(
+    callback: (response: Notifications.NotificationResponse) => void
+  ): () => void {
+    const subscription = Notifications.addNotificationResponseReceivedListener(callback);
+
+    return () => {
+      Notifications.removeNotificationSubscription(subscription);
+    };
+  }
+
+  /**
+   * Set up all notification listeners
+   * Returns cleanup function to remove all listeners
+   *
+   * @param navigation - Navigation object or callback for handling navigation
+   * @returns Cleanup function
+   */
+  setupNotificationListeners(
+    navigation: any | ((type: NotificationType, data: any) => void)
+  ): () => void {
+    // If navigation is a function, use it as callback
+    // Otherwise, extract navigate function from navigation object
+    const navigationCallback =
+      typeof navigation === 'function'
+        ? navigation
+        : (type: NotificationType, data: any) => {
+            const params = this.getNavigationParams(type, data);
+            if (params && navigation?.navigate) {
+              navigation.navigate(params.screen, params.params);
+            }
+          };
+
+    // Initialize with navigation callback
+    this.initialize(navigationCallback);
+
+    // Return cleanup function
+    return () => {
+      this.cleanup();
+    };
+  }
+
+  /**
    * Request notification permissions from user
    * Handles iOS and Android differences
    *
-   * @returns Permission status
+   * iOS: Requires user approval
+   * Android: Granted by default (SDK 33+)
+   *
+   * @returns Permission status object with granted boolean and status string
    */
-  async requestPermissions(): Promise<NotificationPermissionStatus> {
+  async requestNotificationPermissions(): Promise<{ granted: boolean; status: string }> {
     try {
-      // Check if running on physical device
-      if (!Device.isDevice) {
-        console.warn('⚠️ Notifications require a physical device');
-        return NotificationPermissionStatus.DENIED;
-      }
-
       // Get current permission status
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
@@ -222,45 +284,105 @@ class NotificationService {
         finalStatus = status;
       }
 
-      // Map expo status to our enum
-      if (finalStatus === 'granted') {
+      const granted = finalStatus === 'granted';
+
+      if (granted) {
         console.log('✅ Notification permissions granted');
-        return NotificationPermissionStatus.GRANTED;
-      } else if (finalStatus === 'denied') {
-        console.log('❌ Notification permissions denied');
-        return NotificationPermissionStatus.DENIED;
       } else {
-        return NotificationPermissionStatus.UNDETERMINED;
+        console.log('❌ Notification permissions denied');
       }
+
+      return { granted, status: finalStatus };
     } catch (error) {
       console.error('❌ Error requesting notification permissions:', error);
-      return NotificationPermissionStatus.DENIED;
+      return { granted: false, status: 'denied' };
     }
   }
 
   /**
-   * Register for push notifications and get FCM token
+   * Get notification permission status
    *
-   * @returns FCM token or null if registration failed
+   * @returns Current permission status as string
    */
-  async registerForPushNotifications(): Promise<string | null> {
+  async getNotificationPermissionStatus(): Promise<string> {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      return status;
+    } catch (error) {
+      console.error('❌ Error getting permission status:', error);
+      return 'undetermined';
+    }
+  }
+
+  /**
+   * Check if notifications are enabled
+   *
+   * @returns true if notifications are granted, false otherwise
+   */
+  async areNotificationsEnabled(): Promise<boolean> {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      return status === 'granted';
+    } catch (error) {
+      console.error('❌ Error checking notifications enabled:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get Expo Push Token (wraps FCM token)
+   *
+   * @returns Expo push token string or null if failed
+   */
+  async getExpoPushToken(): Promise<string | null> {
+    try {
+      // Get the Expo project ID from app.json
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+
+      if (!projectId) {
+        console.warn('⚠️ Expo project ID not configured in app.json');
+        // Fallback: still try to get token without project ID (for development)
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        return tokenData.data;
+      }
+
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+      const token = tokenData.data;
+      console.log('🔑 Expo push token obtained');
+
+      return token;
+    } catch (error) {
+      console.error('❌ Error getting Expo push token:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Register device for push notifications
+   * Saves token to user's Firestore document
+   *
+   * @param userId - User's Firebase UID
+   * @returns Expo push token or null if registration failed
+   */
+  async registerForPushNotifications(userId: string): Promise<string | null> {
     try {
       // Check permissions first
-      const permissionStatus = await this.requestPermissions();
-      if (permissionStatus !== NotificationPermissionStatus.GRANTED) {
+      const { granted } = await this.requestNotificationPermissions();
+      if (!granted) {
         console.warn('⚠️ Cannot register for push notifications without permissions');
         return null;
       }
 
       // Get Expo push token
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: 'your-expo-project-id', // Replace with your Expo project ID
-      });
+      const token = await this.getExpoPushToken();
 
-      const token = tokenData.data;
-      console.log('🔑 FCM token obtained:', token);
+      if (token) {
+        // Save token to Firestore
+        await this.updateFCMToken(userId, token);
+        return token;
+      }
 
-      return token;
+      return null;
     } catch (error) {
       console.error('❌ Error registering for push notifications:', error);
       return null;
@@ -268,39 +390,17 @@ class NotificationService {
   }
 
   /**
-   * Get device push token (for FCM)
-   * Alternative method for getting the device token directly
-   *
-   * @returns Device push token
-   */
-  async getDevicePushToken(): Promise<string | null> {
-    try {
-      if (Platform.OS === 'android') {
-        const token = await Notifications.getDevicePushTokenAsync();
-        return token.data;
-      } else if (Platform.OS === 'ios') {
-        const token = await Notifications.getDevicePushTokenAsync();
-        return token.data;
-      }
-      return null;
-    } catch (error) {
-      console.error('❌ Error getting device push token:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Save FCM token to user's Firestore document
+   * Update FCM token in Firestore
    *
    * @param userId - User's Firebase UID
    * @param token - FCM token to save
    */
-  async saveTokenToFirestore(userId: string, token: string): Promise<void> {
+  async updateFCMToken(userId: string, token: string): Promise<void> {
     try {
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
         fcmToken: token,
-        lastTokenUpdate: new Date(),
+        lastTokenUpdate: Timestamp.now(),
         devicePlatform: Platform.OS,
       });
 
@@ -312,25 +412,23 @@ class NotificationService {
   }
 
   /**
-   * Complete registration flow: get token and save to Firestore
+   * Listen for token updates
+   * Note: Expo notifications doesn't provide a direct token refresh listener,
+   * but tokens rarely change. This is a placeholder for future implementation.
    *
-   * @param userId - User's Firebase UID
-   * @returns FCM token or null
+   * @param callback - Function called when token is refreshed
+   * @returns Cleanup function
    */
-  async completeRegistration(userId: string): Promise<string | null> {
-    try {
-      const token = await this.registerForPushNotifications();
+  onTokenRefresh(callback: (token: string) => void): () => void {
+    // Token refresh handling
+    // In Expo, tokens are managed automatically and rarely change
+    // This is a placeholder for compatibility with the API requirements
+    console.log('⚠️ Token refresh listener is not directly supported in Expo');
 
-      if (token) {
-        await this.saveTokenToFirestore(userId, token);
-        return token;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('❌ Error completing notification registration:', error);
-      return null;
-    }
+    // Return a no-op cleanup function
+    return () => {
+      console.log('Token refresh listener cleanup');
+    };
   }
 
   /**
@@ -369,11 +467,11 @@ class NotificationService {
   }
 
   /**
-   * Cancel a scheduled notification
+   * Cancel scheduled notification
    *
    * @param notificationId - ID of notification to cancel
    */
-  async cancelNotification(notificationId: string): Promise<void> {
+  async cancelScheduledNotification(notificationId: string): Promise<void> {
     try {
       await Notifications.cancelScheduledNotificationAsync(notificationId);
       console.log('🚫 Notification cancelled:', notificationId);
@@ -386,7 +484,7 @@ class NotificationService {
   /**
    * Cancel all scheduled notifications
    */
-  async cancelAllNotifications(): Promise<void> {
+  async cancelAllScheduledNotifications(): Promise<void> {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
       console.log('🚫 All notifications cancelled');
