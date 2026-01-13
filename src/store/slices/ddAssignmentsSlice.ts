@@ -52,6 +52,8 @@ const convertAssignmentDocToAssignment = (
   ...doc,
   id,
   lastToggleAt: doc.lastToggleAt?.toDate?.(),
+  lastActiveTimestamp: doc.lastActiveTimestamp?.toDate?.(),
+  lastInactiveTimestamp: doc.lastInactiveTimestamp?.toDate?.(),
   assignedAt: doc.assignedAt?.toDate?.() || new Date(),
   createdAt: doc.createdAt?.toDate?.() || new Date(),
   updatedAt: doc.updatedAt?.toDate?.() || new Date(),
@@ -422,4 +424,18 @@ const ddAssignmentsSlice = createSlice({
 });
 
 export const { setAssignments, updateAssignment, clearError } = ddAssignmentsSlice.actions;
+
+// Selectors
+import type { RootState } from '../store';
+
+export const selectAssignments = (state: RootState) => state.ddAssignments.assignments;
+export const selectMyAssignment = (state: RootState) => state.ddAssignments.myAssignment;
+export const selectStats = (state: RootState) => state.ddAssignments.stats;
+export const selectLoading = (state: RootState) => state.ddAssignments.loading;
+export const selectError = (state: RootState) => state.ddAssignments.error;
+
+// Selector to get current DD's assigned rides (ride IDs from myAssignment)
+export const selectAssignedRideIds = (state: RootState) =>
+  state.ddAssignments.myAssignment?.currentRides ?? [];
+
 export default ddAssignmentsSlice.reducer;

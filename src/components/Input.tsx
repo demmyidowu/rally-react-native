@@ -19,12 +19,12 @@ export interface InputProps {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
   error?: string;
   secureTextEntry?: boolean;
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-  autoComplete?: string;
   icon?: keyof typeof Ionicons.glyphMap;
   editable?: boolean;
   multiline?: boolean;
@@ -36,12 +36,12 @@ export const Input: React.FC<InputProps> = ({
   label,
   value,
   onChangeText,
+  onBlur,
   placeholder,
   error,
   secureTextEntry = false,
   keyboardType = 'default',
   autoCapitalize = 'sentences',
-  autoComplete,
   icon,
   editable = true,
   multiline = false,
@@ -76,12 +76,12 @@ export const Input: React.FC<InputProps> = ({
           ]}
           value={value}
           onChangeText={onChangeText}
+          onBlur={onBlur}
           placeholder={placeholder}
           placeholderTextColor={colors.gray[400]}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
-          autoComplete={autoComplete}
           editable={editable}
           multiline={multiline}
           numberOfLines={numberOfLines}

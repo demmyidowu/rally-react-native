@@ -20,6 +20,7 @@ import MemberManagementScreen from '../screens/Admin/MemberManagementScreen';
 import MemberDetailsScreen from '../screens/Admin/MemberDetailsScreen';
 import RideHistoryScreen from '../screens/Admin/RideHistoryScreen';
 import RideDetailsScreen from '../screens/Admin/RideDetailsScreen';
+import JoinRequestsScreen from '../screens/Admin/JoinRequestsScreen';
 
 const Stack = createStackNavigator<AdminStackParamList>();
 
@@ -29,14 +30,13 @@ export const AdminNavigator: React.FC = () => {
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: '#512888', // K-State purple
+          backgroundColor: '#7B68A8', // Lavender purple
         },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: {
           fontWeight: 'bold',
         },
-        cardStyle: { backgroundColor: '#F5F5F5' },
-        animationEnabled: true,
+        cardStyle: { backgroundColor: '#F8F6FC' },
       }}
     >
       <Stack.Screen
@@ -111,6 +111,13 @@ export const AdminNavigator: React.FC = () => {
         component={RideDetailsScreen}
         options={{
           title: 'Ride Details',
+        }}
+      />
+      <Stack.Screen
+        name="JoinRequests"
+        component={JoinRequestsScreen}
+        options={{
+          title: 'Join Requests',
         }}
       />
     </Stack.Navigator>

@@ -24,8 +24,6 @@ export const AuthNavigator: React.FC = () => {
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: '#FFFFFF' },
-        animationEnabled: true,
-        gestureEnabled: true,
       }}
     >
       <Stack.Screen

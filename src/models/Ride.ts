@@ -23,20 +23,35 @@ export interface Ride {
   /** ID of the user requesting the ride */
   riderId: string;
 
+  /** Name of the rider */
+  riderName?: string;
+
+  /** Phone number of the rider */
+  riderPhone?: string;
+
   /** ID of the designated driver assigned to this ride */
   ddId?: string;
 
-  /** Reference to the chapter */
-  chapterId: string;
+  /** Name of the designated driver */
+  ddName?: string;
 
-  /** Reference to the event */
-  eventId: string;
+  /** Phone number of the designated driver */
+  ddPhone?: string;
+
+  /** Reference to the chapter (optional for new signups without chapter) */
+  chapterId?: string;
+
+  /** Reference to the event (optional for non-event rides) */
+  eventId?: string;
 
   /** Pickup location using Firebase GeoPoint for geolocation queries */
   pickupLocation: GeoPoint;
 
   /** Human-readable pickup address */
-  pickupAddress: string;
+  pickupAddress?: string;
+
+  /** Dropoff location */
+  dropoffLocation?: GeoPoint;
 
   /** Human-readable dropoff address */
   dropoffAddress?: string;
@@ -77,6 +92,15 @@ export interface Ride {
   /** Reason for cancellation if applicable */
   cancellationReason?: string;
 
+  /** Number of passengers for this ride */
+  passengerCount?: number;
+
+  /** DD's car description for rider identification */
+  ddCarDescription?: string;
+
+  /** Estimated ETA for DD arrival */
+  estimatedETA?: number;
+
   /** Additional notes about the ride */
   notes?: string;
 }
@@ -98,3 +122,47 @@ export const getRideStatusDisplayName = (status: RideStatus): string => {
       return 'Cancelled';
   }
 };
+
+/**
+ * RideDocument represents the Firestore document structure used by slices
+ * Uses flexible types to support both Firestore SDK and converted data
+ */
+export interface RideDocument {
+  id?: string;
+  riderId: string;
+  riderName?: string;
+  riderPhone?: string;
+  ddId?: string;
+  ddName?: string;
+  ddPhone?: string;
+  chapterId?: string;
+  eventId?: string;
+  pickupLocation: GeoPoint;
+  pickupAddress?: string;
+  dropoffLocation?: GeoPoint;
+  dropoffAddress?: string;
+  status: RideStatus;
+  priority: number;
+  isEmergency: boolean;
+  estimatedWaitTime?: number;
+  queuePosition?: number;
+  requestedAt: Timestamp;
+  assignedAt?: Timestamp;
+  enRouteAt?: Timestamp;
+  completedAt?: Timestamp;
+  cancelledAt?: Timestamp;
+  cancellationReason?: string;
+  notes?: string;
+}
+
+/**
+ * RideRequest for creating a new ride
+ */
+export interface RideRequest {
+  riderId: string;
+  pickupLocation: GeoPoint;
+  dropoffLocation?: GeoPoint;
+  isEmergency: boolean;
+  notes?: string;
+}
+

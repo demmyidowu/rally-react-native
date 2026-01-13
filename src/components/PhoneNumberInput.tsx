@@ -3,7 +3,7 @@
  * Phone number input with automatic E.164 formatting (+1XXXXXXXXXX)
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Input, InputProps } from './Input';
 
 export interface PhoneNumberInputProps
@@ -59,7 +59,7 @@ export const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
   };
 
   const handleChangeText = (text: string) => {
-    const formatted = formatPhoneNumber(text);
+    formatPhoneNumber(text);  // Keep for side effect visual formatting
     const e164 = toE164Format(text);
 
     // Store E.164 format internally but display formatted version

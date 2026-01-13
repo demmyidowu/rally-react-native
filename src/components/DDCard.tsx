@@ -66,7 +66,7 @@ export const DDCard: React.FC<DDCardProps> = ({
             <Ionicons name="checkmark-circle" size={20} color={colors.success} />
           </View>
           <View style={styles.statTextContainer}>
-            <Text style={styles.statValue}>{ddAssignment.totalRidesCompleted}</Text>
+            <Text style={styles.statValue}>{ddAssignment.totalRides}</Text>
             <Text style={styles.statLabel}>Completed</Text>
           </View>
         </View>
@@ -120,7 +120,7 @@ export const DDCard: React.FC<DDCardProps> = ({
         </View>
       )}
 
-      {ddAssignment.inactiveToggles > 5 && (
+      {(ddAssignment.inactiveToggles ?? 0) > 5 && (
         <View style={styles.warningContainer}>
           <Ionicons name="warning" size={16} color={colors.warning} />
           <Text style={styles.warningText}>

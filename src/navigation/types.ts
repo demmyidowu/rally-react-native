@@ -14,6 +14,7 @@ import { RouteProp } from '@react-navigation/native';
 export type AuthStackParamList = {
   Login: undefined;
   Signup: undefined;
+  ForgotPassword: undefined;
   EmailVerification: {
     email: string;
     password: string;
@@ -40,6 +41,8 @@ export type AdminStackParamList = {
   DDManagement: undefined;
   AssignDD: {
     eventId: string;
+    ddId?: string;
+    ddName?: string;
   };
   MemberManagement: undefined;
   MemberDetails: {
@@ -49,6 +52,8 @@ export type AdminStackParamList = {
   RideDetails: {
     rideId: string;
   };
+  JoinRequests: undefined;
+  TransferAdmin: undefined;
 };
 
 export type AdminScreenNavigationProp<T extends keyof AdminStackParamList> =
@@ -90,12 +95,13 @@ export type DDScreenRouteProp<T extends keyof DDStackParamList> =
 
 export type RiderStackParamList = {
   RiderDashboard: undefined;
-  RequestRide: undefined;
+  RequestRide: { isEmergency?: boolean } | undefined;
   MyRides: undefined;
   RideDetails: {
     rideId: string;
   };
   QueueStatus: undefined;
+  JoinChapter: undefined;
 };
 
 export type RiderScreenNavigationProp<T extends keyof RiderStackParamList> =

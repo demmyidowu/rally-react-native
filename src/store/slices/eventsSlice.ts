@@ -8,7 +8,7 @@
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Event, EventDocument, CreateEventRequest } from '../../models/Event';
+import { Event, EventDocument, CreateEventRequest, EventStatus } from '../../models/Event';
 import { db } from '../../config/firebase';
 import {
   collection,
@@ -40,13 +40,15 @@ const initialState: EventsState = {
 };
 
 // Helper: Convert Firestore EventDocument to Event
+// Intentionally converts Timestamps to Dates for app use
 const convertEventDocToEvent = (id: string, doc: EventDocument): Event => ({
   ...doc,
   id,
-  startTime: doc.startTime?.toDate?.() || new Date(),
-  endTime: doc.endTime?.toDate?.() || new Date(),
-  createdAt: doc.createdAt?.toDate?.() || new Date(),
-  updatedAt: doc.updatedAt?.toDate?.() || new Date(),
+  date: (doc.date?.toDate?.() || doc.startTime?.toDate?.() || new Date()) as unknown as Timestamp,
+  startTime: (doc.startTime?.toDate?.() || new Date()) as unknown as Timestamp,
+  endTime: (doc.endTime?.toDate?.() || new Date()) as unknown as Timestamp,
+  createdAt: (doc.createdAt?.toDate?.() || new Date()) as unknown as Timestamp,
+  updatedAt: (doc.updatedAt?.toDate?.() || new Date()) as unknown as Timestamp,
 });
 
 // Async thunks
@@ -70,8 +72,8 @@ export const createEvent = createAsyncThunk(
         name,
         description,
         startTime: Timestamp.fromDate(startTime),
-        endTime: Timestamp.fromDate(endTime),
-        status: 'scheduled',
+        endTime: Timestamp.fromDate(endTime || new Date()),
+        status: EventStatus.SCHEDULED,
         assignedDDs,
         createdBy,
         createdAt: Timestamp.now(),
@@ -90,14 +92,25 @@ export const createEvent = createAsyncThunk(
 // Fetch active event
 export const fetchActiveEvent = createAsyncThunk(
   'events/fetchActiveEvent',
-  async (_, { rejectWithValue }) => {
+  async (chapterId: string | undefined, { rejectWithValue }) => {
     try {
-      const q = query(
-        collection(db, 'events'),
-        where('status', '==', 'active'),
-        orderBy('startTime', 'desc'),
-        limit(1)
-      );
+      let q;
+      if (chapterId) {
+        q = query(
+          collection(db, 'events'),
+          where('status', '==', EventStatus.ACTIVE),
+          where('chapterId', '==', chapterId),
+          orderBy('startTime', 'desc'),
+          limit(1)
+        );
+      } else {
+        q = query(
+          collection(db, 'events'),
+          where('status', '==', EventStatus.ACTIVE),
+          orderBy('startTime', 'desc'),
+          limit(1)
+        );
+      }
 
       const snapshot = await getDocs(q);
       if (snapshot.empty) {
@@ -138,7 +151,7 @@ export const startEvent = createAsyncThunk(
     try {
       const eventRef = doc(db, 'events', eventId);
       await updateDoc(eventRef, {
-        status: 'active',
+        status: EventStatus.ACTIVE,
         updatedAt: Timestamp.now(),
       });
 
@@ -157,7 +170,7 @@ export const endEvent = createAsyncThunk(
     try {
       const eventRef = doc(db, 'events', eventId);
       await updateDoc(eventRef, {
-        status: 'completed',
+        status: EventStatus.COMPLETED,
         updatedAt: Timestamp.now(),
       });
 
@@ -176,7 +189,7 @@ export const cancelEvent = createAsyncThunk(
     try {
       const eventRef = doc(db, 'events', eventId);
       await updateDoc(eventRef, {
-        status: 'cancelled',
+        status: EventStatus.CANCELLED,
         updatedAt: Timestamp.now(),
       });
 
@@ -233,7 +246,7 @@ const eventsSlice = createSlice({
       }
 
       // Update active event if it matches
-      if (action.payload.status === 'active') {
+      if (action.payload.status === EventStatus.ACTIVE) {
         state.activeEvent = action.payload;
       } else if (state.activeEvent?.id === action.payload.id) {
         state.activeEvent = null;
@@ -287,7 +300,7 @@ const eventsSlice = createSlice({
         state.loading = false;
         state.events = action.payload;
         // Set active event from fetched events
-        const activeEvent = action.payload.find((e) => e.status === 'active');
+        const activeEvent = action.payload.find((e) => e.status === EventStatus.ACTIVE);
         state.activeEvent = activeEvent || null;
         state.error = null;
       })
@@ -341,4 +354,13 @@ const eventsSlice = createSlice({
 });
 
 export const { setActiveEvent, setEvents, updateEventInState, clearError } = eventsSlice.actions;
+
+// Selectors
+import type { RootState } from '../store';
+
+export const selectActiveEvent = (state: RootState) => state.events.activeEvent;
+export const selectEvents = (state: RootState) => state.events.events;
+export const selectLoading = (state: RootState) => state.events.loading;
+export const selectError = (state: RootState) => state.events.error;
+
 export default eventsSlice.reducer;

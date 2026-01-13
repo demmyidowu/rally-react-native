@@ -32,7 +32,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { User, UserRole, isKSUEmail, formatPhoneNumber, isValidPhoneNumber } from '../models/User';
+import { User, UserRole, isEduEmail, formatPhoneNumber, isValidPhoneNumber } from '../models/User';
 import { AuthError } from '../types/errors';
 
 /**
@@ -50,9 +50,10 @@ export interface SignUpData {
   email: string;
   password: string;
   name: string;
-  phoneNumber: string;
-  chapterId: string;
+  phoneNumber?: string; // Optional - push notifications replaced SMS
+  chapterId?: string;
   classYear: number;
+  adminCode?: string; // Optional admin code for chapter admin self-registration
 }
 
 /**
@@ -104,7 +105,7 @@ export async function signUp(userData: SignUpData): Promise<AuthResult> {
 
   try {
     // Validate KSU email
-    if (!isKSUEmail(email)) {
+    if (!isEduEmail(email)) {
       throw AuthError.EMAIL_NOT_KSU;
     }
 
@@ -114,10 +115,13 @@ export async function signUp(userData: SignUpData): Promise<AuthResult> {
       throw new AuthError(passwordValidation.errors[0], 'WEAK_PASSWORD');
     }
 
-    // Validate and format phone number
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    if (!isValidPhoneNumber(phoneNumber)) {
-      throw AuthError.INVALID_PHONE_NUMBER;
+    // Validate and format phone number if provided
+    let formattedPhone = '';
+    if (phoneNumber && phoneNumber.trim()) {
+      formattedPhone = formatPhoneNumber(phoneNumber);
+      if (!isValidPhoneNumber(phoneNumber)) {
+        throw AuthError.INVALID_PHONE_NUMBER;
+      }
     }
 
     // Create Firebase Auth user
@@ -251,7 +255,7 @@ export async function signOut(): Promise<void> {
 export async function sendPasswordReset(email: string): Promise<void> {
   try {
     // Validate KSU email
-    if (!isKSUEmail(email)) {
+    if (!isEduEmail(email)) {
       throw AuthError.EMAIL_NOT_KSU;
     }
 
@@ -458,7 +462,7 @@ export function validatePassword(password: string): PasswordValidation {
  * @returns true if email ends with @ksu.edu (case insensitive)
  */
 export function validateKSUEmail(email: string): boolean {
-  return isKSUEmail(email);
+  return isEduEmail(email);
 }
 
 /**

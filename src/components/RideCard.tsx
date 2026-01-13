@@ -4,13 +4,13 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Timestamp } from 'firebase/firestore';
 import { Card } from './Card';
 import { StatusBadge } from './StatusBadge';
 import { colors, spacing, typography } from './theme';
-import { Ride, getRideStatusDisplayName } from '../models/Ride';
+import { Ride } from '../models/Ride';
 
 export interface RideCardProps {
   ride: Ride;
@@ -19,6 +19,18 @@ export interface RideCardProps {
   showPriority?: boolean;
   riderName?: string;
   ddName?: string;
+  /** Card visual variant */
+  variant?: 'default' | 'dd' | 'admin';
+  /** Show action buttons for DD */
+  showActions?: boolean;
+  /** Callback for marking ride en route */
+  onMarkEnRoute?: () => void;
+  /** Callback for completing ride */
+  onComplete?: () => void;
+  /** Callback for opening navigation */
+  onNavigate?: () => void;
+  /** Custom container style */
+  style?: ViewStyle;
 }
 
 export const RideCard: React.FC<RideCardProps> = ({
@@ -28,6 +40,12 @@ export const RideCard: React.FC<RideCardProps> = ({
   showPriority = false,
   riderName,
   ddName,
+  variant: _variant = 'default',
+  showActions = false,
+  onMarkEnRoute,
+  onComplete,
+  onNavigate,
+  style: _style,
 }) => {
   const formatTimestamp = (timestamp: Timestamp | undefined): string => {
     if (!timestamp) return 'N/A';
@@ -131,6 +149,29 @@ export const RideCard: React.FC<RideCardProps> = ({
         <View style={styles.notesContainer}>
           <Text style={styles.notesLabel}>Notes:</Text>
           <Text style={styles.notesText}>{ride.notes}</Text>
+        </View>
+      )}
+
+      {showActions && (
+        <View style={styles.actionsContainer}>
+          {ride.status === 'assigned' && onMarkEnRoute && (
+            <TouchableOpacity style={styles.actionButton} onPress={onMarkEnRoute}>
+              <Ionicons name="navigate" size={18} color={colors.white} />
+              <Text style={styles.actionButtonText}>En Route</Text>
+            </TouchableOpacity>
+          )}
+          {ride.status === 'enroute' && onComplete && (
+            <TouchableOpacity style={[styles.actionButton, styles.completeButton]} onPress={onComplete}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.white} />
+              <Text style={styles.actionButtonText}>Complete</Text>
+            </TouchableOpacity>
+          )}
+          {onNavigate && (
+            <TouchableOpacity style={[styles.actionButton, styles.navButton]} onPress={onNavigate}>
+              <Ionicons name="map" size={18} color={colors.white} />
+              <Text style={styles.actionButtonText}>Map</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </Card>
@@ -253,5 +294,34 @@ const styles = StyleSheet.create({
   notesText: {
     ...typography.caption,
     color: colors.gray[600],
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+  },
+  completeButton: {
+    backgroundColor: colors.success,
+  },
+  navButton: {
+    backgroundColor: colors.secondary,
+  },
+  actionButtonText: {
+    ...typography.caption,
+    color: colors.white,
+    fontWeight: '600',
   },
 });

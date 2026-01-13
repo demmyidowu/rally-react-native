@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useLocation } from '@/hooks/useLocation';
 import { LocationPermissionPrompt } from './LocationPermissionPrompt';

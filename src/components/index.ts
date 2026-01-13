@@ -29,3 +29,4 @@ export * from './Header';
 
 // Feature Components
 export * from './EmergencyButton';
+export * from './Dropdown';

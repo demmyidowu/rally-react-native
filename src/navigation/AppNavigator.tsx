@@ -9,8 +9,8 @@
  * - Navigation persistence (optional)
  */
 
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React from 'react';
+import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useSelector } from 'react-redux';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
@@ -26,53 +26,12 @@ import { RootStackParamList } from './types';
 const Stack = createStackNavigator<RootStackParamList>();
 
 // Deep linking configuration
-const linking = {
+const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ['rally://', 'https://rally.app'],
   config: {
     screens: {
-      Auth: {
-        screens: {
-          Login: 'login',
-          Signup: 'signup',
-          EmailVerification: 'verify-email',
-        },
-      },
-      Main: {
-        screens: {
-          Admin: {
-            screens: {
-              AdminDashboard: 'admin',
-              EventManagement: 'admin/events',
-              CreateEvent: 'admin/events/create',
-              EditEvent: 'admin/events/edit/:eventId',
-              DDManagement: 'admin/dds',
-              AssignDD: 'admin/dds/assign/:eventId',
-              MemberManagement: 'admin/members',
-              MemberDetails: 'admin/members/:userId',
-              RideHistory: 'admin/rides',
-              RideDetails: 'admin/rides/:rideId',
-            },
-          },
-          DD: {
-            screens: {
-              DDDashboard: 'dd',
-              ActiveRides: 'dd/rides',
-              RideDetails: 'dd/rides/:rideId',
-              Navigation: 'dd/navigation/:rideId',
-              ToggleStatus: 'dd/status',
-            },
-          },
-          Rider: {
-            screens: {
-              RiderDashboard: 'rider',
-              RequestRide: 'rider/request',
-              MyRides: 'rider/rides',
-              RideDetails: 'rider/rides/:rideId',
-              QueueStatus: 'rider/queue',
-            },
-          },
-        },
-      },
+      Auth: 'auth',
+      Main: 'main',
       EmergencyRide: 'emergency',
       Notification: 'notification/:type/:rideId',
     },
@@ -82,7 +41,7 @@ const linking = {
 export const AppNavigator: React.FC = () => {
   // Get auth state from Redux
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
-  const isLoading = useSelector((state: RootState) => state.auth.loading);
+  const isLoading = useSelector((state: RootState) => state.auth.isLoading);
 
   // Show loading screen while checking authentication
   if (isLoading) {
@@ -98,7 +57,6 @@ export const AppNavigator: React.FC = () => {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          animationEnabled: true,
         }}
       >
         {!isAuthenticated ? (

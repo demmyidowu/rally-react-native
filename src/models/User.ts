@@ -20,14 +20,17 @@ export interface User {
   /** Full name of the user */
   name: string;
 
-  /** Email address - Must be @ksu.edu domain */
+  /** Email address - Must be .edu domain */
   email: string;
 
   /** Phone number in E.164 format: +15551234567 */
   phoneNumber: string;
 
+  /** Reference to the user's university */
+  universityId?: string;
+
   /** Reference to the user's chapter */
-  chapterId: string;
+  chapterId?: string;
 
   /** User's role in the system */
   role: UserRole;
@@ -41,6 +44,9 @@ export interface User {
   /** Whether the user's email has been verified */
   isEmailVerified: boolean;
 
+  /** True if user used admin code during signup */
+  selfRegisteredAdmin?: boolean;
+
   /** Firebase Cloud Messaging token for push notifications */
   fcmToken?: string;
 
@@ -52,11 +58,16 @@ export interface User {
 }
 
 /**
- * Utility function to validate KSU email domain
+ * Utility function to validate .edu email domain
  */
-export const isKSUEmail = (email: string): boolean => {
-  return email.toLowerCase().endsWith('@ksu.edu');
+export const isEduEmail = (email: string): boolean => {
+  return email.toLowerCase().endsWith('.edu');
 };
+
+/**
+ * @deprecated Use isEduEmail instead
+ */
+export const isKSUEmail = isEduEmail;
 
 /**
  * Get display name for user role

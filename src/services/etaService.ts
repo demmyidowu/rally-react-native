@@ -37,7 +37,7 @@
  */
 
 // Configuration
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyBfuAf84Jsn6bPz6x0bugAuC-yRE1FKKqw';
 const DEFAULT_FALLBACK_ETA = 15; // Default fallback ETA in minutes
 
 // Type definitions

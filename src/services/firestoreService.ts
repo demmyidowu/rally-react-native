@@ -31,12 +31,10 @@ import {
   orderBy,
   limit,
   WhereFilterOp,
-  Query,
   DocumentData,
   onSnapshot,
   Unsubscribe,
   writeBatch,
-  WriteBatch,
   Timestamp,
   GeoPoint,
   serverTimestamp,
@@ -982,7 +980,7 @@ export const createDDAssignment = async (
       'events',
       eventId,
       'ddAssignments',
-      assignment.userId
+      assignment.ddId
     );
 
     await setDoc(assignmentRef, {

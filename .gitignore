@@ -31,7 +31,10 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
 .env*.local
+*.env
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +42,24 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+firebase-debug.log
+firebase-debug.*.log
+.firebaserc
+ui-debug.log
+
+# Google Services (contains API keys)
+google-services.json
+GoogleService-Info.plist
+
+# Scripts with secrets
+scripts/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

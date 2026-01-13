@@ -8,7 +8,7 @@
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Ride, RideDocument, RideRequest } from '../../models/Ride';
+import { Ride, RideDocument, RideRequest, RideStatus } from '../../models/Ride';
 import { db } from '../../config/firebase';
 import {
   collection,
@@ -29,6 +29,7 @@ export interface RidesState {
   activeRides: Ride[]; // Rides with status: assigned, en_route
   queue: Ride[]; // Rides with status: requested (sorted by priority)
   myRide: Ride | null; // Current user's active ride
+  myRides: Ride[]; // User's ride history
   loading: boolean;
   error: string | null;
 }
@@ -38,19 +39,21 @@ const initialState: RidesState = {
   activeRides: [],
   queue: [],
   myRide: null,
+  myRides: [],
   loading: false,
   error: null,
 };
 
 // Helper: Convert Firestore RideDocument to Ride
+// Intentionally converts Timestamps to Dates for app use
 const convertRideDocToRide = (id: string, doc: RideDocument): Ride => ({
   ...doc,
   id,
-  requestedAt: doc.requestedAt?.toDate?.() || new Date(),
-  assignedAt: doc.assignedAt?.toDate?.(),
-  enRouteAt: doc.enRouteAt?.toDate?.(),
-  completedAt: doc.completedAt?.toDate?.(),
-  cancelledAt: doc.cancelledAt?.toDate?.(),
+  requestedAt: (doc.requestedAt?.toDate?.() || new Date()) as unknown as Timestamp,
+  assignedAt: doc.assignedAt?.toDate?.() as unknown as Timestamp | undefined,
+  enrouteAt: doc.enRouteAt?.toDate?.() as unknown as Timestamp | undefined,
+  completedAt: doc.completedAt?.toDate?.() as unknown as Timestamp | undefined,
+  cancelledAt: doc.cancelledAt?.toDate?.() as unknown as Timestamp | undefined,
 });
 
 // Helper: Calculate priority
@@ -93,7 +96,7 @@ export const requestRide = createAsyncThunk(
         riderId,
         riderName,
         riderPhone,
-        status: 'requested',
+        status: RideStatus.QUEUED,
         pickupLocation,
         dropoffLocation,
         isEmergency,
@@ -118,7 +121,7 @@ export const fetchActiveRides = createAsyncThunk(
     try {
       const q = query(
         collection(db, 'rides'),
-        where('status', 'in', ['requested', 'assigned', 'en_route']),
+        where('status', 'in', [RideStatus.QUEUED, RideStatus.ASSIGNED, RideStatus.ENROUTE]),
         orderBy('priority', 'desc')
       );
 
@@ -142,7 +145,7 @@ export const fetchMyRide = createAsyncThunk(
       const q = query(
         collection(db, 'rides'),
         where('riderId', '==', userId),
-        where('status', 'in', ['requested', 'assigned', 'en_route']),
+        where('status', 'in', [RideStatus.QUEUED, RideStatus.ASSIGNED, RideStatus.ENROUTE]),
         orderBy('requestedAt', 'desc')
       );
 
@@ -153,6 +156,27 @@ export const fetchMyRide = createAsyncThunk(
 
       const rideDoc = snapshot.docs[0];
       return convertRideDocToRide(rideDoc.id, rideDoc.data() as RideDocument);
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Fetch user's ride history (all rides)
+export const fetchMyRides = createAsyncThunk(
+  'rides/fetchMyRides',
+  async (userId: string, { rejectWithValue }) => {
+    try {
+      const q = query(
+        collection(db, 'rides'),
+        where('riderId', '==', userId),
+        orderBy('requestedAt', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc =>
+        convertRideDocToRide(doc.id, doc.data() as RideDocument)
+      );
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -260,10 +284,10 @@ const ridesSlice = createSlice({
     setRides: (state, action: PayloadAction<Ride[]>) => {
       state.rides = action.payload;
       state.activeRides = action.payload.filter((r) =>
-        ['assigned', 'en_route'].includes(r.status)
+        [RideStatus.ASSIGNED, RideStatus.ENROUTE].includes(r.status as RideStatus)
       );
       state.queue = action.payload
-        .filter((r) => r.status === 'requested')
+        .filter((r) => r.status === RideStatus.QUEUED)
         .sort((a, b) => b.priority - a.priority);
     },
     // Update single ride (from real-time listener)
@@ -277,10 +301,10 @@ const ridesSlice = createSlice({
 
       // Update derived state
       state.activeRides = state.rides.filter((r) =>
-        ['assigned', 'en_route'].includes(r.status)
+        [RideStatus.ASSIGNED, RideStatus.ENROUTE].includes(r.status as RideStatus)
       );
       state.queue = state.rides
-        .filter((r) => r.status === 'requested')
+        .filter((r) => r.status === RideStatus.QUEUED)
         .sort((a, b) => b.priority - a.priority);
     },
     // Remove ride (from real-time listener)
@@ -326,7 +350,7 @@ const ridesSlice = createSlice({
           ['assigned', 'en_route'].includes(r.status)
         );
         state.queue = action.payload
-          .filter((r) => r.status === 'requested')
+          .filter((r) => r.status === RideStatus.QUEUED)
           .sort((a, b) => b.priority - a.priority);
         state.error = null;
       })
@@ -347,6 +371,22 @@ const ridesSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchMyRide.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+
+    // Fetch my rides (history)
+    builder
+      .addCase(fetchMyRides.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchMyRides.fulfilled, (state, action) => {
+        state.loading = false;
+        state.myRides = action.payload;
+        state.error = null;
+      })
+      .addCase(fetchMyRides.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });
@@ -395,4 +435,22 @@ const ridesSlice = createSlice({
 });
 
 export const { setRides, updateRide, removeRide, clearError } = ridesSlice.actions;
+
+// Selectors
+import type { RootState } from '../store';
+
+export const selectRides = (state: RootState) => state.rides.rides;
+export const selectActiveRides = (state: RootState) => state.rides.activeRides;
+export const selectQueue = (state: RootState) => state.rides.queue;
+export const selectMyRide = (state: RootState) => state.rides.myRide;
+export const selectMyRides = (state: RootState) => state.rides.myRides;
+export const selectLoading = (state: RootState) => state.rides.loading;
+export const selectError = (state: RootState) => state.rides.error;
+export const selectQueuePosition = (state: RootState) => {
+  const myRide = state.rides.myRide;
+  if (!myRide || myRide.status !== RideStatus.QUEUED) return null;
+  const position = state.rides.queue.findIndex(r => r.id === myRide.id);
+  return position >= 0 ? position + 1 : null;
+};
+
 export default ridesSlice.reducer;

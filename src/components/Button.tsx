@@ -23,6 +23,8 @@ export interface ButtonProps {
   loading?: boolean;
   fullWidth?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Custom container style */
+  style?: ViewStyle;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -33,21 +35,23 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   fullWidth = false,
   icon,
+  style,
 }) => {
   const isDisabled = disabled || loading;
 
   const containerStyle: ViewStyle[] = [
     styles.container,
     styles[variant],
-    fullWidth && styles.fullWidth,
-    isDisabled && styles.disabled,
-  ];
+    fullWidth ? styles.fullWidth : undefined,
+    isDisabled ? styles.disabled : undefined,
+    style,
+  ].filter(Boolean) as ViewStyle[];
 
   const textStyle: TextStyle[] = [
     styles.text,
-    styles[`${variant}Text` as keyof typeof styles],
-    isDisabled && styles.disabledText,
-  ];
+    styles[`${variant}Text` as keyof typeof styles] as TextStyle,
+    isDisabled ? styles.disabledText : undefined,
+  ].filter(Boolean) as TextStyle[];
 
   return (
     <TouchableOpacity

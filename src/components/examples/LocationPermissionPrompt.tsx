@@ -94,7 +94,7 @@ export function LocationPermissionPrompt({
         <>
           <Text style={styles.message}>
             Location permission is required to request rides. Please enable it
-            in Settings.
+            in Settings. Location services may also be restricted on this device.
           </Text>
 
           <TouchableOpacity
@@ -103,15 +103,6 @@ export function LocationPermissionPrompt({
           >
             <Text style={styles.buttonText}>Open Settings</Text>
           </TouchableOpacity>
-        </>
-      )}
-
-      {status === PermissionStatus.RESTRICTED && (
-        <>
-          <Text style={styles.message}>
-            Location services are restricted on this device. This may be due to
-            parental controls or device management settings.
-          </Text>
         </>
       )}
     </View>

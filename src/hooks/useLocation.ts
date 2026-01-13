@@ -10,12 +10,11 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import locationService, {
+import {
+  locationService,
   LocationError,
-  LocationErrorCode,
   PermissionStatus,
   Coordinate,
-  LocationWithAddress,
 } from '@/services/locationService';
 
 /**
@@ -89,7 +88,8 @@ export function useLocation(): UseLocationReturn {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const granted = await locationService.requestLocationPermission();
+      const result = await locationService.requestLocationPermission();
+      const granted = result.granted;
 
       setState((prev) => ({
         ...prev,
@@ -227,9 +227,9 @@ export function useLocationPermission() {
     setIsRequesting(true);
 
     try {
-      const granted = await locationService.requestLocationPermission();
+      const result = await locationService.requestLocationPermission();
       setStatus(locationService.currentPermissionStatus);
-      return granted;
+      return result.granted;
     } finally {
       setIsRequesting(false);
     }

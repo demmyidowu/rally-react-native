@@ -1,14 +1,30 @@
 /**
  * Rally App Design System
- * K-State Colors & Design Tokens
+ * Lavender Purple Theme (Based on Logo)
  */
 
 export const colors = {
-  primary: '#512888',      // K-State Purple
-  secondary: '#8B1538',    // Rally Red/Maroon
+  // Primary colors from logo
+  primary: '#7B68A8',        // Lavender Purple (main)
+  primaryDark: '#5D4F82',    // Deeper Purple
+  primaryLight: '#9B8BC4',   // Light Lavender
+
+  // Secondary/accent colors
+  secondary: '#B8A8D4',      // Soft Lavender
+  accent: '#6B5B95',         // Rich Purple
+
+  // Backgrounds
+  background: '#F8F6FC',     // Very Light Lavender
+  surface: '#FFFFFF',        // White surface
+  surfaceLight: '#FAF8FF',   // Slight lavender tint
+
+  // Base colors
   white: '#FFFFFF',
   black: '#000000',
+
+  // Gray scale
   gray: {
+    50: '#FAFAFA',
     100: '#F5F5F5',
     200: '#E5E5E5',
     300: '#D4D4D4',
@@ -19,10 +35,20 @@ export const colors = {
     800: '#262626',
     900: '#171717',
   },
+
+  // Status colors
   success: '#22C55E',
+  successLight: '#DCFCE7',
   warning: '#EAB308',
+  warningLight: '#FEF9C3',
   error: '#EF4444',
+  errorLight: '#FEE2E2',
   info: '#3B82F6',
+  infoLight: '#DBEAFE',
+
+  // Transparent overlays
+  overlay: 'rgba(0, 0, 0, 0.5)',
+  overlayLight: 'rgba(123, 104, 168, 0.1)',
 };
 
 export const spacing = {

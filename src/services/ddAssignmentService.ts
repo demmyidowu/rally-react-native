@@ -375,10 +375,9 @@ export async function assignRide(
     throw new Error('Invalid ride status - must be queued');
   }
 
-  // Fetch DD user info
-  let ddUser: User;
+  // Verify DD user exists (throws if not found)
   try {
-    ddUser = await fetchUser(ddAssignment.userId);
+    await fetchUser(ddAssignment.userId);
   } catch (error) {
     throw new Error('Failed to fetch DD user info: ' + (error as Error).message);
   }

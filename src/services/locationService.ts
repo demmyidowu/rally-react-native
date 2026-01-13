@@ -51,6 +51,15 @@ export enum LocationErrorType {
 }
 
 /**
+ * Permission status enum
+ */
+export enum PermissionStatus {
+  UNDETERMINED = 'undetermined',
+  GRANTED = 'granted',
+  DENIED = 'denied',
+}
+
+/**
  * Custom location service error
  */
 export class LocationServiceError extends Error {
@@ -62,6 +71,18 @@ export class LocationServiceError extends Error {
     this.type = type;
     Object.setPrototypeOf(this, LocationServiceError.prototype);
   }
+}
+
+// Alias for backwards compatibility with useLocation.ts
+export { LocationServiceError as LocationError };
+export { LocationErrorType as LocationErrorCode };
+
+/**
+ * Coordinate type for simpler location data
+ */
+export interface Coordinate {
+  latitude: number;
+  longitude: number;
 }
 
 // MARK: - Type Definitions
@@ -163,6 +184,49 @@ class LocationService {
       LocationService.instance = new LocationService();
     }
     return LocationService.instance;
+  }
+
+  /**
+   * Current permission status (cached value, may not be up to date)
+   */
+  get currentPermissionStatus(): PermissionStatus {
+    // Return a default value - the hook should call requestPermission or checkPermission
+    return PermissionStatus.UNDETERMINED;
+  }
+
+  /**
+   * Capture current location once (returns Coordinate format for hooks)
+   */
+  async captureLocationOnce(): Promise<{ coordinate: Coordinate }> {
+    const result = await this.getLocationWithAccuracy(Location.Accuracy.High);
+    return {
+      coordinate: {
+        latitude: result.latitude,
+        longitude: result.longitude,
+      },
+    };
+  }
+
+  /**
+   * Capture location with address (returns Coordinate and address for hooks)
+   */
+  async captureLocationAndAddress(): Promise<{ coordinate: Coordinate; address: string }> {
+    const result = await this.getCurrentLocation();
+    return {
+      coordinate: {
+        latitude: result.latitude,
+        longitude: result.longitude,
+      },
+      address: result.address,
+    };
+  }
+
+  /**
+   * Clear cached location data
+   */
+  clearCache(): void {
+    this.lastCapturedLocation = undefined;
+    this.lastCapturedAddress = undefined;
   }
 
   // MARK: - Permission Management

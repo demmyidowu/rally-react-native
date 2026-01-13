@@ -3,6 +3,7 @@
  */
 
 export * from './User';
+export * from './University';
 export * from './Chapter';
 export * from './Event';
 export * from './Ride';

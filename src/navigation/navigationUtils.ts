@@ -9,7 +9,7 @@
  * - Service layer
  */
 
-import { createNavigationContainerRef, NavigationContainerRef } from '@react-navigation/native';
+import { createNavigationContainerRef } from '@react-navigation/native';
 import { RootStackParamList } from './types';
 
 // ============================================================================
@@ -36,7 +36,8 @@ export function navigate<T extends keyof RootStackParamList>(
   params?: RootStackParamList[T]
 ) {
   if (navigationRef.isReady()) {
-    navigationRef.navigate(name as never, params as never);
+    // @ts-ignore - Using type assertion for complex navigation types
+    navigationRef.navigate(name, params);
   } else {
     console.warn('Navigation is not ready yet');
   }

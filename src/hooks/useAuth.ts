@@ -33,9 +33,10 @@ interface UseAuthResult {
     email: string,
     password: string,
     name: string,
-    phoneNumber: string,
+    phoneNumber?: string,
     chapterId?: string,
-    classYear?: number
+    classYear?: number,
+    adminCode?: string
   ) => Promise<void>;
   signOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -82,8 +83,8 @@ export function useAuth(): UseAuthResult {
     try {
       setLoading(true);
       setError(null);
-      const userData = await authSignIn(email, password);
-      setUser(userData);
+      const result = await authSignIn(email, password);
+      setUser(result.user);
       setAuthState(AuthState.SIGNED_IN);
     } catch (err: any) {
       const errorMessage =
@@ -100,15 +101,24 @@ export function useAuth(): UseAuthResult {
     email: string,
     password: string,
     name: string,
-    phoneNumber: string,
+    phoneNumber?: string,
     chapterId: string = '',
-    classYear: number = 1
+    classYear: number = 1,
+    adminCode?: string
   ): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
-      const userData = await authSignUp(email, password, name, phoneNumber, chapterId, classYear);
-      setUser(userData);
+      const result = await authSignUp({
+        email,
+        password,
+        name,
+        phoneNumber,
+        chapterId,
+        classYear,
+        adminCode,
+      });
+      setUser(result.user);
       setAuthState(AuthState.EMAIL_NOT_VERIFIED);
     } catch (err: any) {
       const errorMessage =

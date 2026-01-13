@@ -57,7 +57,6 @@ import { db } from '../config/firebase';
 import {
   NotificationType,
   NotificationData,
-  NotificationPermissionStatus,
   NotificationChannel,
   RideNotificationData,
   EmergencyNotificationData,
@@ -283,11 +282,11 @@ class NotificationService {
       typeof navigation === 'function'
         ? navigation
         : (type: NotificationType, data: any) => {
-            const params = this.getNavigationParams(type, data);
-            if (params && navigation?.navigate) {
-              navigation.navigate(params.screen, params.params);
-            }
-          };
+          const params = this.getNavigationParams(type, data);
+          if (params && navigation?.navigate) {
+            navigation.navigate(params.screen, params.params);
+          }
+        };
 
     // Initialize with navigation callback
     this.initialize(navigationCallback);
@@ -461,7 +460,7 @@ class NotificationService {
    * @param callback - Function called when token is refreshed
    * @returns Cleanup function
    */
-  onTokenRefresh(callback: (token: string) => void): () => void {
+  onTokenRefresh(_callback: (token: string) => void): () => void {
     // Token refresh handling
     // In Expo, tokens are managed automatically and rarely change
     // This is a placeholder for compatibility with the API requirements

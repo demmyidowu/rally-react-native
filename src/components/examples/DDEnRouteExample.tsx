@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import locationService from '@/services/locationService';
+import { locationService } from '@/services/locationService';
 
 interface DDEnRouteExampleProps {
   rideId: string;
@@ -34,7 +34,7 @@ interface DDEnRouteExampleProps {
  * 4. Cloud Function calculates ETA and sends SMS to rider
  */
 export function DDEnRouteExample({
-  rideId,
+  rideId: _rideId,
   riderName,
   riderAddress,
   onEnRoute,
@@ -48,18 +48,18 @@ export function DDEnRouteExample({
       setError(null);
 
       // Step 1: Check permission (should already be granted for DD)
-      if (!locationService.isAuthorized) {
+      const hasPermission = await locationService.hasLocationPermission();
+      if (!hasPermission) {
         throw new Error('Location permission is required');
       }
 
       // Step 2: Capture DD's current location (no address needed)
       console.log('Capturing DD location for ETA calculation...');
-      const { coordinate, geoPoint, timestamp } =
-        await locationService.captureLocationOnce();
+      const { coordinate } = await locationService.captureLocationOnce();
 
       console.log('DD location captured:', {
-        coordinate: locationService.formatCoordinate(coordinate),
-        timestamp,
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
       });
 
       // Step 3: Update ride in Firestore

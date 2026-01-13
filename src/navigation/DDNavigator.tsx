@@ -31,7 +31,6 @@ export const DDNavigator: React.FC = () => {
           fontWeight: 'bold',
         },
         cardStyle: { backgroundColor: '#F5F5F5' },
-        animationEnabled: true,
       }}
     >
       <Stack.Screen

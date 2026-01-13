@@ -2,30 +2,34 @@
  * Sign Up Screen
  *
  * Allows new users to create an account with:
- * - K-State email (@ksu.edu required)
+ * - University email (.edu required)
  * - Password
  * - Full name
- * - Phone number
+ * - University and Chapter selection
  *
  * After successful signup, redirects to email verification screen
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
   Alert,
-  ActivityIndicator,
+  Image,
+  Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../navigation/types';
 import { useAuth } from '../../hooks/useAuth';
 import { AuthError } from '../../types/errors';
+import { Button, Input, Dropdown } from '../../components';
+import { colors, spacing, typography, borderRadius } from '../../components/theme';
+import { universities, getChaptersForUniversity } from '../../data/chapters';
 
 type Props = AuthScreenProps<'Signup'>;
 
@@ -36,9 +40,30 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedUniversity, setSelectedUniversity] = useState('');
+  const [selectedChapter, setSelectedChapter] = useState('');
+  const [isChapterAdmin, setIsChapterAdmin] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
+  const [adminCodeValid, setAdminCodeValid] = useState<boolean | null>(null);
+  const [validatingCode, setValidatingCode] = useState(false);
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Get university options
+  const universityOptions = useMemo(() =>
+    universities.map(u => ({ label: u.name, value: u.id })),
+    []
+  );
+
+  // Get chapter options based on selected university
+  const chapterOptions = useMemo(() => {
+    if (!selectedUniversity) return [];
+    const chapters = getChaptersForUniversity(selectedUniversity);
+    return chapters.map(c => ({
+      label: `${c.name} (${c.type === 'fraternity' ? 'Fraternity' : 'Sorority'})`,
+      value: c.id
+    }));
+  }, [selectedUniversity]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -51,23 +76,28 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
     // Email validation
     if (!email.trim()) {
       errors.email = 'Email is required';
-    } else if (!email.toLowerCase().endsWith('@ksu.edu')) {
-      errors.email = 'Must use K-State email (@ksu.edu)';
+    } else if (!email.toLowerCase().endsWith('.edu')) {
+      errors.email = 'Must use a university email address (.edu)';
     }
 
-    // Phone validation
-    const phoneDigits = phoneNumber.replace(/\D/g, '');
-    if (!phoneNumber.trim()) {
-      errors.phoneNumber = 'Phone number is required';
-    } else if (phoneDigits.length !== 10) {
-      errors.phoneNumber = 'Must be 10 digits';
+    // University validation
+    if (!selectedUniversity) {
+      errors.university = 'Please select your university';
     }
+
+    // Chapter is optional - users can request to join later
 
     // Password validation
     if (!password) {
       errors.password = 'Password is required';
-    } else if (password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+    } else if (password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
+    } else if (!/[A-Z]/.test(password)) {
+      errors.password = 'Password must include an uppercase letter';
+    } else if (!/[a-z]/.test(password)) {
+      errors.password = 'Password must include a lowercase letter';
+    } else if (!/[0-9]/.test(password)) {
+      errors.password = 'Password must include a number';
     }
 
     // Confirm password
@@ -75,8 +105,58 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
       errors.confirmPassword = 'Passwords do not match';
     }
 
+    // Admin code validation
+    if (isChapterAdmin && !adminCode.trim()) {
+      errors.adminCode = 'Admin code is required for chapter admins';
+    }
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  // Validate admin code when it changes
+  const validateAdminCode = async (code: string) => {
+    if (!code.trim() || !selectedUniversity) {
+      setAdminCodeValid(null);
+      return;
+    }
+
+    setValidatingCode(true);
+    try {
+      // Call the Cloud Function to validate admin code
+      const response = await fetch(`https://us-central1-rallyride-17c2c.cloudfunctions.net/validateAdminCode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: {
+            adminCode: code.trim(),
+            universityId: selectedUniversity
+          }
+        }),
+      });
+      const result = await response.json();
+      setAdminCodeValid(result.result?.valid === true);
+    } catch (err) {
+      console.error('Error validating admin code:', err);
+      setAdminCodeValid(null);
+    } finally {
+      setValidatingCode(false);
+    }
+  };
+
+  const handleUniversityChange = (value: string) => {
+    setSelectedUniversity(value);
+    setSelectedChapter(''); // Reset chapter when university changes
+    if (validationErrors.university) {
+      setValidationErrors((prev) => ({ ...prev, university: '' }));
+    }
+  };
+
+  const handleChapterChange = (value: string) => {
+    setSelectedChapter(value);
+    if (validationErrors.chapter) {
+      setValidationErrors((prev) => ({ ...prev, chapter: '' }));
+    }
   };
 
   const handleSignUp = async () => {
@@ -84,16 +164,24 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    // If admin, verify code is valid
+    if (isChapterAdmin && adminCodeValid !== true) {
+      Alert.alert('Invalid Admin Code', 'Please enter a valid admin code from your IFC.');
+      return;
+    }
+
     try {
       clearError();
-      await signUp(email.trim(), password, name.trim(), phoneNumber.trim());
-
-      // Navigate to email verification screen (if exists, otherwise show alert)
-      Alert.alert(
-        'Verification Email Sent',
-        'Please check your K-State email and click the verification link.',
-        [{ text: 'OK' }]
+      await signUp(
+        email.trim(),
+        password,
+        name.trim(),
+        undefined,
+        selectedChapter,
+        1,
+        isChapterAdmin ? adminCode.trim() : undefined // Pass admin code if registering as admin
       );
+      navigation.navigate('EmailVerification', { email: email.trim(), password });
     } catch (err: any) {
       if (err instanceof AuthError) {
         Alert.alert('Sign Up Failed', err.message);
@@ -103,219 +191,314 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const formatPhoneInput = (text: string) => {
-    // Remove all non-digits
-    const digits = text.replace(/\D/g, '');
-
-    // Format as (XXX) XXX-XXXX
-    if (digits.length <= 3) {
-      return digits;
-    } else if (digits.length <= 6) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    } else {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-    }
-  };
-
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Sign up with your K-State email</Text>
-        </View>
-
-        <View style={styles.form}>
-          {/* Name Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={[styles.input, validationErrors.name && styles.inputError]}
-              placeholder="John Doe"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              textContentType="name"
-            />
-            {validationErrors.name && (
-              <Text style={styles.errorText}>{validationErrors.name}</Text>
-            )}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../../../assets/logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Sign up with your K-State email</Text>
           </View>
 
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>K-State Email</Text>
-            <TextInput
-              style={[styles.input, validationErrors.email && styles.inputError]}
-              placeholder="yourname@ksu.edu"
+          {/* Form */}
+          <View style={styles.form}>
+            {error && (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerText}>{error}</Text>
+              </View>
+            )}
+
+            <Input
+              label="Full Name"
+              placeholder="FirstName LastName"
+              value={name}
+              onChangeText={(text) => {
+                setName(text);
+                if (validationErrors.name) {
+                  setValidationErrors((prev) => ({ ...prev, name: '' }));
+                }
+              }}
+              autoCapitalize="words"
+              error={validationErrors.name}
+              editable={!loading}
+            />
+
+            <Input
+              label="University Email"
+              placeholder="yourname@university.edu"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (validationErrors.email) {
+                  setValidationErrors((prev) => ({ ...prev, email: '' }));
+                }
+              }}
               autoCapitalize="none"
               keyboardType="email-address"
-              textContentType="emailAddress"
+              error={validationErrors.email}
+              editable={!loading}
             />
-            {validationErrors.email && (
-              <Text style={styles.errorText}>{validationErrors.email}</Text>
-            )}
-          </View>
 
-          {/* Phone Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={[styles.input, validationErrors.phoneNumber && styles.inputError]}
-              placeholder="(555) 123-4567"
-              value={phoneNumber}
-              onChangeText={(text) => setPhoneNumber(formatPhoneInput(text))}
-              keyboardType="phone-pad"
-              textContentType="telephoneNumber"
-              maxLength={14}
+            <Dropdown
+              label="University"
+              placeholder="Select your university"
+              options={universityOptions}
+              value={selectedUniversity}
+              onSelect={handleUniversityChange}
+              error={validationErrors.university}
+              disabled={loading}
             />
-            {validationErrors.phoneNumber && (
-              <Text style={styles.errorText}>{validationErrors.phoneNumber}</Text>
-            )}
-          </View>
 
-          {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, validationErrors.password && styles.inputError]}
-              placeholder="At least 6 characters"
+            <Dropdown
+              label="Chapter (Optional)"
+              placeholder={selectedUniversity ? "Select your chapter or join later" : "Select university first"}
+              options={chapterOptions}
+              value={selectedChapter}
+              onSelect={handleChapterChange}
+              error={validationErrors.chapter}
+              disabled={loading || !selectedUniversity}
+            />
+
+            {/* Admin Registration Section */}
+            <View style={styles.adminSection}>
+              <View style={styles.adminToggleRow}>
+                <View style={styles.adminToggleTextContainer}>
+                  <Text style={styles.adminToggleLabel}>I'm a Chapter Admin</Text>
+                  <Text style={styles.adminToggleHint}>I have an admin code from IFC</Text>
+                </View>
+                <Switch
+                  value={isChapterAdmin}
+                  onValueChange={setIsChapterAdmin}
+                  trackColor={{ false: colors.gray[300], true: colors.primaryLight }}
+                  thumbColor={isChapterAdmin ? colors.primary : colors.gray[400]}
+                  disabled={loading}
+                />
+              </View>
+
+              {isChapterAdmin && (
+                <View style={styles.adminCodeContainer}>
+                  <Input
+                    label="Admin Code"
+                    placeholder="Enter code from IFC"
+                    value={adminCode}
+                    onChangeText={(text) => {
+                      setAdminCode(text);
+                      setAdminCodeValid(null);
+                      if (validationErrors.adminCode) {
+                        setValidationErrors((prev) => ({ ...prev, adminCode: '' }));
+                      }
+                    }}
+                    onBlur={() => validateAdminCode(adminCode)}
+                    autoCapitalize="characters"
+                    error={validationErrors.adminCode}
+                    editable={!loading && !!selectedUniversity}
+                  />
+                  {validatingCode && (
+                    <Text style={styles.validatingText}>Validating...</Text>
+                  )}
+                  {adminCodeValid === true && !validatingCode && (
+                    <Text style={styles.validCodeText}>✓ Valid admin code</Text>
+                  )}
+                  {adminCodeValid === false && !validatingCode && (
+                    <Text style={styles.invalidCodeText}>✗ Invalid admin code</Text>
+                  )}
+                  {!selectedUniversity && isChapterAdmin && (
+                    <Text style={styles.adminCodeHint}>Select university first</Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            <Input
+              label="Password"
+              placeholder="At least 8 characters"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (validationErrors.password) {
+                  setValidationErrors((prev) => ({ ...prev, password: '' }));
+                }
+              }}
               secureTextEntry
-              textContentType="newPassword"
+              error={validationErrors.password}
+              editable={!loading}
             />
-            {validationErrors.password && (
-              <Text style={styles.errorText}>{validationErrors.password}</Text>
-            )}
-          </View>
 
-          {/* Confirm Password Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-              style={[styles.input, validationErrors.confirmPassword && styles.inputError]}
+            <Input
+              label="Confirm Password"
               placeholder="Re-enter password"
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                if (validationErrors.confirmPassword) {
+                  setValidationErrors((prev) => ({ ...prev, confirmPassword: '' }));
+                }
+              }}
               secureTextEntry
-              textContentType="newPassword"
+              error={validationErrors.confirmPassword}
+              editable={!loading}
             />
-            {validationErrors.confirmPassword && (
-              <Text style={styles.errorText}>{validationErrors.confirmPassword}</Text>
-            )}
-          </View>
 
-          {/* Sign Up Button */}
-          <TouchableOpacity
-            style={[styles.signUpButton, loading && styles.buttonDisabled]}
-            onPress={handleSignUp}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.signUpButtonText}>Sign Up</Text>
-            )}
-          </TouchableOpacity>
+            <Text style={styles.passwordHint}>
+              Password must be at least 8 characters with uppercase, lowercase, and a number.
+            </Text>
 
-          {/* Sign In Link */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.link}>Sign In</Text>
-            </TouchableOpacity>
+            <Button
+              title="Sign Up"
+              onPress={handleSignUp}
+              loading={loading}
+              disabled={loading}
+            />
+
+            {/* Sign In Link */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <Text style={styles.link}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    padding: spacing.lg,
   },
   header: {
-    marginTop: 40,
-    marginBottom: 32,
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  logoContainer: {
+    width: 80,
+    height: 80,
+    marginBottom: spacing.md,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 8,
+    ...typography.h2,
+    color: colors.primary,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    ...typography.body,
+    color: colors.gray[500],
   },
   form: {
     flex: 1,
   },
-  inputContainer: {
-    marginBottom: 20,
+  errorBanner: {
+    backgroundColor: colors.errorLight,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 8,
+  errorBannerText: {
+    color: colors.error,
+    ...typography.body,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  inputError: {
-    borderColor: '#ff3b30',
-  },
-  errorText: {
-    color: '#ff3b30',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  signUpButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  signUpButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  passwordHint: {
+    ...typography.caption,
+    color: colors.gray[400],
+    marginBottom: spacing.lg,
+    marginTop: -spacing.sm,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
+    marginTop: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   footerText: {
-    color: '#666',
-    fontSize: 14,
+    color: colors.gray[500],
+    ...typography.body,
   },
   link: {
-    color: '#007AFF',
-    fontSize: 14,
+    color: colors.primary,
+    ...typography.body,
     fontWeight: '600',
+  },
+  adminSection: {
+    marginBottom: spacing.lg,
+  },
+  adminToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.gray[50],
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  adminToggleTextContainer: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  adminToggleLabel: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.gray[800],
+  },
+  adminToggleHint: {
+    ...typography.caption,
+    color: colors.gray[500],
+    marginTop: spacing.xs,
+  },
+  adminCodeContainer: {
+    marginTop: spacing.sm,
+  },
+  validatingText: {
+    ...typography.caption,
+    color: colors.gray[500],
+    marginTop: spacing.xs,
+  },
+  validCodeText: {
+    ...typography.caption,
+    color: colors.success,
+    marginTop: spacing.xs,
+  },
+  invalidCodeText: {
+    ...typography.caption,
+    color: colors.error,
+    marginTop: spacing.xs,
+  },
+  adminCodeHint: {
+    ...typography.caption,
+    color: colors.gray[400],
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
   },
 });
 

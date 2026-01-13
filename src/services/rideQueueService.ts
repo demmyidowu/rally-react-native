@@ -34,7 +34,6 @@ import {
   getDocs,
   doc,
   getDoc,
-  Timestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -76,12 +75,6 @@ interface Event {
   createdBy: string;
 }
 
-interface User {
-  id: string;
-  classYear: number;
-  chapterId: string;
-  // ... other fields
-}
 
 // Constants
 const EMERGENCY_PRIORITY = 9999.0;

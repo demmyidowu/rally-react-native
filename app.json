@@ -1,16 +1,17 @@
 {
   "expo": {
-    "name": "Rally",
+    "name": "RallyRide",
     "slug": "rally-react-native",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "owner": "didowu",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#8B1538"
+      "backgroundColor": "#7B68A8"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
@@ -20,54 +21,53 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.kstate.rally",
+      "bundleIdentifier": "com.RallyRideios.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Rally needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Rally needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
+        "NSLocationWhenInUseUsageDescription": "RallyRide needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RallyRide needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
         "UIBackgroundModes": [
           "remote-notification"
         ]
       }
     },
     "android": {
-      "package": "com.kstate.rally",
+      "package": "com.RallyRide.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#8B1538"
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#7B68A8"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logo.png"
     },
     "plugins": [
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Rally needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
-          "locationWhenInUsePermission": "Rally needs your location to calculate accurate pickup locations and ETAs for designated driver rides."
+          "locationAlwaysAndWhenInUsePermission": "RallyRide needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
+          "locationWhenInUsePermission": "RallyRide needs your location to calculate accurate pickup locations and ETAs for designated driver rides."
         }
       ],
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
-          "color": "#8B1538",
-          "sounds": [
-            "./assets/notification-sound.wav"
-          ]
+          "icon": "./assets/logo.png",
+          "color": "#7B68A8"
         }
       ]
     ],
     "extra": {
       "eas": {
-        "projectId": "your-eas-project-id"
+        "projectId": "a3bc2ad2-a1d1-4191-a42d-71128f256bc6"
       }
     }
   }

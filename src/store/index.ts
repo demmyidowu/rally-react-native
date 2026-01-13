@@ -17,10 +17,10 @@ export {
   signUp,
   fetchUserProfile,
   updateUserProfile,
-  logout,
+  signOut,
   setUser,
   clearError as clearAuthError,
-  resetEmailVerification,
+  checkEmailVerification,
 } from './slices/authSlice';
 export type { AuthState } from './slices/authSlice';
 

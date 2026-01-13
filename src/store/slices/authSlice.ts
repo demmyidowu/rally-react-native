@@ -83,6 +83,7 @@ export const signOut = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await authService.signOut();
+      return undefined;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Sign out failed');
     }

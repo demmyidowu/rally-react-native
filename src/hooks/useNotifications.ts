@@ -54,8 +54,8 @@ export const useNotifications = (
       const init = async () => {
         try {
           await notificationService.initialize(navigationCallback);
-          const status = await notificationService.getPermissionStatus();
-          setPermissionStatus(status);
+          const status = await notificationService.getNotificationPermissionStatus();
+          setPermissionStatus(status as NotificationPermissionStatus);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to initialize notifications');
           console.error('Failed to initialize notifications:', err);
@@ -69,6 +69,7 @@ export const useNotifications = (
         notificationService.cleanup();
       };
     }
+    return undefined;
   }, [autoInitialize, navigationCallback]);
 
   /**
@@ -79,7 +80,8 @@ export const useNotifications = (
     setError(null);
 
     try {
-      const status = await notificationService.requestPermissions();
+      const result = await notificationService.requestNotificationPermissions();
+      const status = result.granted ? NotificationPermissionStatus.GRANTED : NotificationPermissionStatus.DENIED;
       setPermissionStatus(status);
       return status;
     } catch (err) {
@@ -99,7 +101,7 @@ export const useNotifications = (
     setError(null);
 
     try {
-      const token = await notificationService.completeRegistration(userId);
+      const token = await notificationService.registerForPushNotifications(userId);
       return token;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to register for push notifications';
@@ -148,7 +150,7 @@ export const useNotifications = (
    */
   const cancelAllNotifications = useCallback(async (): Promise<void> => {
     try {
-      await notificationService.cancelAllNotifications();
+      await notificationService.cancelAllScheduledNotifications();
     } catch (err) {
       console.error('Failed to cancel notifications:', err);
     }

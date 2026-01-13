@@ -24,7 +24,7 @@ export const Card: React.FC<CardProps> = ({
     styles.container,
     shadows[elevation],
     style,
-  ];
+  ].filter(Boolean) as ViewStyle[];
 
   if (onPress) {
     return (

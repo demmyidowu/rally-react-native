@@ -23,16 +23,22 @@ export interface Event {
   name: string;
 
   /** Reference to the chapter hosting the event */
-  chapterId: string;
+  chapterId?: string;
 
-  /** Date and time of the event */
-  date: Timestamp;
+  /** Date and time of the event (legacy field) */
+  date?: Timestamp;
+
+  /** Start time of the event */
+  startTime?: Timestamp;
+
+  /** End time of the event */
+  endTime?: Timestamp;
 
   /**
    * Array of chapter IDs allowed to request rides for this event
    * Use ["ALL"] for events open to all chapters (cross-chapter events)
    */
-  allowedChapterIds: string[];
+  allowedChapterIds?: string[];
 
   /** Current status of the event */
   status: EventStatus;
@@ -51,6 +57,9 @@ export interface Event {
 
   /** ID of the user who created this event */
   createdBy: string;
+
+  /** IDs of designated drivers assigned to this event */
+  assignedDDs?: string[];
 }
 
 /**
@@ -75,3 +84,36 @@ export const getEventStatusDisplayName = (status: EventStatus): string => {
 export const isEventActive = (event: Event): boolean => {
   return event.status === EventStatus.ACTIVE;
 };
+
+/**
+ * EventDocument represents the Firestore document structure
+ * Made flexible to match eventsSlice usage
+ */
+export interface EventDocument {
+  id?: string;
+  name: string;
+  chapterId?: string;
+  description?: string;
+  date?: Timestamp;
+  allowedChapterIds?: string[];
+  status: EventStatus;
+  location?: string;
+  startTime: Timestamp;
+  endTime: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
+  assignedDDs?: string[];
+}
+
+/**
+ * CreateEventRequest for creating a new event
+ */
+export interface CreateEventRequest {
+  name: string;
+  description?: string;
+  location?: string;
+  startTime: Date;
+  endTime?: Date;
+  assignedDDs?: string[];
+}

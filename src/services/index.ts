@@ -176,36 +176,38 @@ export {
 // Authentication Service
 // ============================================================================
 export {
-  signInWithEmail,
-  signUpWithEmail,
+  signIn,
+  signUp,
   signOut,
-  sendEmailVerification,
+  resendVerificationEmail,
   sendPasswordReset,
   getCurrentUser,
-  onAuthStateChanged,
+  onAuthStateChange,
   isEmailVerified,
   reloadUser,
-  AuthServiceError,
-  AuthErrorCode,
+  checkEmailVerification,
+  validatePassword,
+  type SignUpData,
+  type AuthResult,
+  AuthState,
 } from './authService';
 
 // ============================================================================
 // Location Service
 // ============================================================================
 export {
-  requestLocationPermissions,
-  getCurrentLocation,
-  reverseGeocode,
-  geocodeAddress,
-  watchPosition,
-  stopWatchingPosition,
-  isLocationEnabled,
-  openLocationSettings,
+  locationService,
   LocationServiceError,
-  LocationErrorCode,
-  type Location,
-  type GeocodedAddress,
+  LocationErrorType,
+  PermissionStatus,
+  type Coordinate,
+  type LocationResult,
+  type LocationWithAddress,
+  type AddressDetails,
+  type PermissionResult,
 } from './locationService';
+
+export { default as LocationService } from './locationService';
 
 // ============================================================================
 // Notification Service - Push Notifications & FCM

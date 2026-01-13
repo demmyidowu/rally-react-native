@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
-import { colors, typography, borderRadius } from './theme';
+import { colors } from './theme';
 
 export interface AvatarProps {
   uri?: string;

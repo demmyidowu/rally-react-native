@@ -11,12 +11,13 @@
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import {
-  getAuth,
   connectAuthEmulator,
   Auth,
   initializeAuth,
-  getReactNativePersistence,
+  getAuth,
 } from 'firebase/auth';
+// @ts-ignore - getReactNativePersistence exists in RN but not in web types
+import { getReactNativePersistence } from '@firebase/auth/dist/rn/index.js';
 import { getFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator, Functions } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,11 +41,18 @@ if (getApps().length === 0) {
   app = getApps()[0];
 }
 
-// Initialize Firebase services
-// Use initializeAuth with AsyncStorage persistence for React Native
-export const auth: Auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+// Initialize Firebase services with AsyncStorage persistence for React Native
+let auth: Auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch {
+  // Auth already initialized, get the existing instance
+  auth = getAuth(app);
+}
+
+export { auth };
 export const db: Firestore = getFirestore(app);
 export const functions: Functions = getFunctions(app);
 
