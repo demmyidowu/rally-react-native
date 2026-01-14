@@ -212,7 +212,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
               />
             </View>
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Sign up with your K-State email</Text>
+            <Text style={styles.subtitle}>Sign up with your .edu email</Text>
           </View>
 
           {/* Form */}
@@ -225,7 +225,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 
             <Input
               label="Full Name"
-              placeholder="FirstName LastName"
+              placeholder="First Last"
               value={name}
               onChangeText={(text) => {
                 setName(text);

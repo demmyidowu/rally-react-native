@@ -1,7 +1,7 @@
 /**
  * Login Screen
  *
- * Allows users to sign in with their @ksu.edu email and password.
+ * Allows users to sign in with their .edu email and password.
  * Features:
  * - Email/password input with validation
  * - Error display
@@ -20,6 +20,8 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../navigation/types';
@@ -27,6 +29,8 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { signIn, selectIsLoading, selectError, clearError } from '../../store/slices/authSlice';
 import { Button, Input } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 
 type Props = AuthScreenProps<'Login'>;
 
@@ -40,13 +44,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+
   const validateEmail = (value: string): boolean => {
     if (!value) {
       setEmailError('Email is required');
       return false;
     }
-    if (!value.endsWith('@ksu.edu')) {
-      setEmailError('Please use your @ksu.edu email');
+    if (!value.toLowerCase().endsWith('.edu')) {
+      setEmailError('Please use your .edu email');
       return false;
     }
     setEmailError('');
@@ -76,6 +85,44 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       await dispatch(signIn({ email: email.toLowerCase().trim(), password })).unwrap();
     } catch (err: any) {
       // Error is handled by Redux and displayed via the error state
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const emailToReset = resetEmail.trim().toLowerCase();
+
+    if (!emailToReset) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    if (!emailToReset.endsWith('.edu')) {
+      Alert.alert('Error', 'Please use your .edu email address');
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, emailToReset);
+      setShowForgotModal(false);
+      setResetEmail('');
+      Alert.alert(
+        'Check Your Email',
+        `Password reset instructions have been sent to ${emailToReset}. Please check your inbox and spam folder.`,
+        [{ text: 'OK' }]
+      );
+    } catch (err: any) {
+      let errorMessage = 'Failed to send reset email. Please try again.';
+      if (err.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please wait and try again later.';
+      }
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -140,7 +187,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.forgotPassword}
-              onPress={() => Alert.alert('Coming Soon', 'Password reset functionality will be added soon.')}
+              onPress={() => {
+                setResetEmail(email); // Pre-fill with current email
+                setShowForgotModal(true);
+              }}
               disabled={isLoading}
             >
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
@@ -169,6 +219,58 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        visible={showForgotModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowForgotModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Reset Password</Text>
+            <Text style={styles.modalSubtitle}>
+              Enter your email address and we'll send you a link to reset your password.
+            </Text>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="your.name@university.edu"
+              placeholderTextColor={colors.gray[400]}
+              value={resetEmail}
+              onChangeText={setResetEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!resetLoading}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowForgotModal(false);
+                  setResetEmail('');
+                }}
+                disabled={resetLoading}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSendButton, resetLoading && styles.modalButtonDisabled]}
+                onPress={handleForgotPassword}
+                disabled={resetLoading}
+              >
+                <Text style={styles.modalSendText}>
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -250,6 +352,75 @@ const styles = StyleSheet.create({
   signupLink: {
     ...typography.body,
     color: colors.primary,
+    fontWeight: '600',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContainer: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    ...typography.h2,
+    color: colors.gray[900],
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  modalSubtitle: {
+    ...typography.body,
+    color: colors.gray[600],
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    ...typography.body,
+    color: colors.gray[800],
+    marginBottom: spacing.lg,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    borderRadius: borderRadius.md,
+  },
+  modalCancelText: {
+    ...typography.body,
+    color: colors.gray[600],
+    fontWeight: '600',
+  },
+  modalSendButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalSendText: {
+    ...typography.body,
+    color: colors.white,
     fontWeight: '600',
   },
 });
