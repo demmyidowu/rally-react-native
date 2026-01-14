@@ -7,9 +7,9 @@
  */
 
 import * as logger from "firebase-functions/logger";
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
-import {initializeApp, getApps} from "firebase-admin/app";
-import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
@@ -21,7 +21,7 @@ const db = getFirestore();
 /**
  * Thresholds for monitoring
  */
-const INACTIVE_TOGGLE_THRESHOLD = 5; // Alert if more than 5 toggles
+const INACTIVE_TOGGLE_THRESHOLD = 3; // Alert if more than 3 toggles
 const PROLONGED_INACTIVE_MINUTES = 15; // Alert if inactive for 15+ minutes
 const TOGGLE_RESET_WINDOW_MINUTES = 30; // Reset counter after 30 minutes
 
@@ -67,12 +67,12 @@ async function getChapterIdFromEvent(eventId: string): Promise<string | null> {
   try {
     const eventDoc = await db.collection("events").doc(eventId).get();
     if (!eventDoc.exists) {
-      logger.error("Event not found", {eventId});
+      logger.error("Event not found", { eventId });
       return null;
     }
     return eventDoc.data()?.chapterId || null;
   } catch (error: any) {
-    logger.error("Error fetching event", {eventId, error: error.message});
+    logger.error("Error fetching event", { eventId, error: error.message });
     return null;
   }
 }
@@ -87,12 +87,12 @@ async function getDDName(ddId: string): Promise<string> {
   try {
     const userDoc = await db.collection("users").doc(ddId).get();
     if (!userDoc.exists) {
-      logger.error("DD user not found", {ddId});
+      logger.error("DD user not found", { ddId });
       return "Unknown";
     }
     return userDoc.data()?.name || "Unknown";
   } catch (error: any) {
-    logger.error("Error fetching DD user", {ddId, error: error.message});
+    logger.error("Error fetching DD user", { ddId, error: error.message });
     return "Unknown";
   }
 }
@@ -141,7 +141,7 @@ export const monitorDDActivity = onDocumentUpdated(
     const eventId = event.params.eventId;
 
     if (!before || !after) {
-      logger.error("Missing assignment data", {ddId, eventId});
+      logger.error("Missing assignment data", { ddId, eventId });
       return;
     }
 
@@ -155,7 +155,7 @@ export const monitorDDActivity = onDocumentUpdated(
     try {
       const chapterId = await getChapterIdFromEvent(eventId);
       if (!chapterId) {
-        logger.error("Could not determine chapter ID", {eventId});
+        logger.error("Could not determine chapter ID", { eventId });
         return;
       }
 

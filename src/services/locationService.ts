@@ -450,7 +450,8 @@ class LocationService {
 
   /**
    * Convert coordinates to address string
-   * Reverse geocoding
+   * Reverse geocoding - uses Cloud Function for consistency with server
+   * Falls back to expo-location if Cloud Function fails
    *
    * Returns formatted address in the format:
    * "123 Main St, Manhattan, KS 66502"
@@ -470,34 +471,54 @@ class LocationService {
     }
 
     try {
-      const geocodeResults = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
+      // Try Cloud Function first for consistency
+      const { httpsCallable } = await import('firebase/functions');
+      const { functions } = await import('../config/firebase');
 
-      if (!geocodeResults || geocodeResults.length === 0) {
-        throw new LocationServiceError(
-          'Could not determine your address from location.',
-          LocationErrorType.GEOCODING_FAILED
-        );
-      }
+      const reverseGeocodeFunc = httpsCallable<
+        { latitude: number; longitude: number },
+        { address: string; formattedAddress: string }
+      >(functions, 'reverseGeocode');
 
-      const result = geocodeResults[0];
-      const address = this.formatAddress(result);
+      const result = await reverseGeocodeFunc({ latitude, longitude });
+      const address = result.data.formattedAddress || result.data.address;
 
       // Cache result
       this.lastCapturedAddress = address;
-
       return address;
-    } catch (error) {
-      if (error instanceof LocationServiceError) {
-        throw error;
-      }
+    } catch (cloudError) {
+      console.warn('Cloud Function geocoding failed, using fallback:', cloudError);
 
-      throw new LocationServiceError(
-        'Geocoding failed.',
-        LocationErrorType.GEOCODING_FAILED
-      );
+      // Fallback to expo-location
+      try {
+        const geocodeResults = await Location.reverseGeocodeAsync({
+          latitude,
+          longitude,
+        });
+
+        if (!geocodeResults || geocodeResults.length === 0) {
+          throw new LocationServiceError(
+            'Could not determine your address from location.',
+            LocationErrorType.GEOCODING_FAILED
+          );
+        }
+
+        const result = geocodeResults[0];
+        const address = this.formatAddress(result);
+
+        // Cache result
+        this.lastCapturedAddress = address;
+        return address;
+      } catch (error) {
+        if (error instanceof LocationServiceError) {
+          throw error;
+        }
+
+        throw new LocationServiceError(
+          'Geocoding failed.',
+          LocationErrorType.GEOCODING_FAILED
+        );
+      }
     }
   }
 

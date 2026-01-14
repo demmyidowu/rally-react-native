@@ -2,8 +2,8 @@
  * Request Ride Screen
  *
  * Allows riders to request a new ride with:
- * - Current location capture
- * - Destination input
+ * - Current location capture (with manual entry fallback)
+ * - Destination input with Google Places autocomplete
  * - Number of passengers
  * - Emergency option
  */
@@ -18,18 +18,22 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { RiderScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { requestRide, selectLoading } from '../../store/slices/ridesSlice';
 import { locationService } from '../../services/locationService';
 import { createGeoPoint } from '../../services/firestoreService';
-import { Button, Input, Header, Card } from '../../components';
+import { Button, Header, Card, AddressAutocomplete } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
 type Props = RiderScreenProps<'RequestRide'>;
+
+type LocationMode = 'auto' | 'manual';
 
 const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
   const dispatch = useAppDispatch();
@@ -38,9 +42,8 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const isEmergency = route.params?.isEmergency ?? false;
 
-  const [destination, setDestination] = useState('');
-  const [passengerCount, setPassengerCount] = useState(1);
-  const [notes, setNotes] = useState('');
+  // Location states
+  const [locationMode, setLocationMode] = useState<LocationMode>('auto');
   const [locationStatus, setLocationStatus] = useState<'pending' | 'capturing' | 'captured' | 'error'>('pending');
   const [currentLocation, setCurrentLocation] = useState<{
     latitude: number;
@@ -48,6 +51,9 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
     address: string;
   } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Form states
+  const [notes, setNotes] = useState('');
 
   useEffect(() => {
     captureLocation();
@@ -69,20 +75,38 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
         address: address || 'Location captured',
       });
       setLocationStatus('captured');
+      setLocationMode('auto');
     } catch (error: any) {
       setLocationStatus('error');
-      setLocationError(error.message || 'Failed to get location');
+      setLocationError(error.message || 'Failed to get location. You can enter your address manually.');
     }
+  };
+
+  const handleManualAddressSelect = (address: string, latitude: number, longitude: number) => {
+    setCurrentLocation({
+      latitude,
+      longitude,
+      address,
+    });
+    setLocationStatus('captured');
+  };
+
+
+
+  const switchToManualEntry = () => {
+    setLocationMode('manual');
+    setLocationStatus('pending');
+    setCurrentLocation(null);
+  };
+
+  const switchToAutoLocation = () => {
+    setLocationMode('auto');
+    captureLocation();
   };
 
   const handleSubmit = async () => {
     if (!currentLocation) {
-      Alert.alert('Location Required', 'Please capture your current location.');
-      return;
-    }
-
-    if (!destination.trim()) {
-      Alert.alert('Destination Required', 'Please enter your destination.');
+      Alert.alert('Location Required', 'Please provide your pickup location.');
       return;
     }
 
@@ -101,7 +125,7 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
           currentLocation.latitude,
           currentLocation.longitude
         ),
-        dropoffLocation: undefined, // Will be geocoded from destination  
+        pickupAddress: currentLocation.address,
         isEmergency,
         notes: notes.trim() || undefined,
       })).unwrap();
@@ -114,6 +138,92 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to request ride');
     }
+  };
+
+  const renderPickupLocation = () => {
+    // Manual entry mode
+    if (locationMode === 'manual') {
+      return (
+        <View>
+          <AddressAutocomplete
+            label="Enter Pickup Address"
+            placeholder="Start typing your address..."
+            onAddressSelect={handleManualAddressSelect}
+            onError={(error) => setLocationError(error)}
+            error={locationError || undefined}
+          />
+          {currentLocation && (
+            <View style={styles.locationCaptured}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+              <Text style={styles.locationAddress}>{currentLocation.address}</Text>
+            </View>
+          )}
+          <TouchableOpacity onPress={switchToAutoLocation} style={styles.switchModeButton}>
+            <Ionicons name="locate" size={16} color={colors.primary} />
+            <Text style={styles.switchModeText}>Use my current location instead</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Auto location mode
+    return (
+      <View>
+        {locationStatus === 'capturing' && (
+          <View style={styles.locationStatus}>
+            <Text style={styles.locationStatusText}>📍 Capturing your location...</Text>
+          </View>
+        )}
+
+        {locationStatus === 'captured' && currentLocation && (
+          <View style={styles.locationCaptured}>
+            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+            <View style={styles.locationCapturedContent}>
+              <Text style={styles.locationAddress}>{currentLocation.address}</Text>
+              <View style={styles.locationActions}>
+                <TouchableOpacity onPress={captureLocation} style={styles.actionLink}>
+                  <Text style={styles.actionLinkText}>Refresh location</Text>
+                </TouchableOpacity>
+                <Text style={styles.actionDivider}>•</Text>
+                <TouchableOpacity onPress={switchToManualEntry} style={styles.actionLink}>
+                  <Text style={styles.actionLinkText}>Enter different address</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {locationStatus === 'error' && (
+          <View style={styles.locationError}>
+            <Ionicons name="warning" size={24} color={colors.error} />
+            <View style={styles.locationErrorContent}>
+              <Text style={styles.locationErrorText}>{locationError}</Text>
+              <View style={styles.errorActions}>
+                <Button
+                  title="Try Again"
+                  variant="secondary"
+                  onPress={captureLocation}
+                  style={styles.errorButton}
+                />
+                <Button
+                  title="Enter Address Manually"
+                  variant="primary"
+                  onPress={switchToManualEntry}
+                  style={styles.errorButton}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {locationStatus === 'pending' && (
+          <Button
+            title="Capture My Location"
+            onPress={captureLocation}
+          />
+        )}
+      </View>
+    );
   };
 
   return (
@@ -145,92 +255,35 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           )}
 
-          {/* Location Section */}
+          {/* Pickup Location Section */}
           <Card style={styles.locationCard}>
-            <Text style={styles.sectionTitle}>Pickup Location</Text>
-
-            {locationStatus === 'capturing' && (
-              <View style={styles.locationStatus}>
-                <Text style={styles.locationStatusText}>📍 Capturing your location...</Text>
-              </View>
-            )}
-
-            {locationStatus === 'captured' && currentLocation && (
-              <View style={styles.locationCaptured}>
-                <Text style={styles.locationAddress}>{currentLocation.address}</Text>
-                <TouchableOpacity onPress={captureLocation} style={styles.recaptureButton}>
-                  <Text style={styles.recaptureText}>Update Location</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {locationStatus === 'error' && (
-              <View style={styles.locationError}>
-                <Text style={styles.locationErrorText}>{locationError}</Text>
-                <Button
-                  title="Try Again"
-                  variant="secondary"
-                  onPress={captureLocation}
-                  style={styles.retryButton}
-                />
-              </View>
-            )}
-
-            {locationStatus === 'pending' && (
-              <Button
-                title="Capture My Location"
-                onPress={captureLocation}
-              />
-            )}
+            <View style={styles.sectionHeader}>
+              <Ionicons name="location" size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Pickup Location</Text>
+            </View>
+            {renderPickupLocation()}
           </Card>
 
-          {/* Destination */}
+          {/* Notes */}
           <Card style={styles.formCard}>
-            <Input
-              label="Destination"
-              placeholder="Where do you want to go?"
-              value={destination}
-              onChangeText={setDestination}
-              editable={!loading}
-            />
-
-            {/* Passenger Count */}
-            <View style={styles.passengerSection}>
-              <Text style={styles.passengerLabel}>Number of Passengers</Text>
-              <View style={styles.passengerButtons}>
-                {[1, 2, 3, 4].map((num) => (
-                  <TouchableOpacity
-                    key={num}
-                    style={[
-                      styles.passengerButton,
-                      passengerCount === num && styles.passengerButtonActive,
-                    ]}
-                    onPress={() => setPassengerCount(num)}
-                    disabled={loading}
-                  >
-                    <Text
-                      style={[
-                        styles.passengerButtonText,
-                        passengerCount === num && styles.passengerButtonTextActive,
-                      ]}
-                    >
-                      {num}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            <View style={styles.notesSection}>
+              <Text style={styles.notesLabel}>Notes (Optional)</Text>
+              <View style={styles.notesInputContainer}>
+                <Text style={styles.noteIcon}>📝</Text>
+                <View style={styles.notesTextAreaWrapper}>
+                  <TextInput
+                    style={styles.notesTextArea}
+                    placeholder="Any special instructions?"
+                    placeholderTextColor={colors.gray[400]}
+                    value={notes}
+                    onChangeText={setNotes}
+                    multiline
+                    numberOfLines={3}
+                    editable={!loading}
+                  />
+                </View>
               </View>
             </View>
-
-            {/* Notes */}
-            <Input
-              label="Notes (Optional)"
-              placeholder="Any special instructions?"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-              editable={!loading}
-            />
           </Card>
 
           {/* Submit Button */}
@@ -238,13 +291,13 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
             title={isEmergency ? 'Request Emergency Ride' : 'Request Ride'}
             onPress={handleSubmit}
             loading={loading}
-            disabled={loading || locationStatus !== 'captured'}
+            disabled={loading || !currentLocation}
             style={isEmergency ? styles.emergencySubmitButton : styles.submitButton}
           />
 
           {/* Info */}
           <Text style={styles.infoText}>
-            Your location is captured once when requesting a ride. It is not tracked continuously.
+            Your pickup location is used once to connect you with a DD. It is not tracked continuously.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -295,10 +348,19 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.lg,
   },
+  formCard: {
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   sectionTitle: {
     ...typography.h3,
     color: colors.gray[800],
-    marginBottom: spacing.md,
+    marginLeft: spacing.sm,
   },
   locationStatus: {
     padding: spacing.md,
@@ -311,39 +373,87 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   locationCaptured: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: colors.successLight,
     borderRadius: borderRadius.md,
     padding: spacing.md,
   },
+  locationCapturedContent: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
   locationAddress: {
     ...typography.body,
     color: colors.success,
-    marginBottom: spacing.sm,
+    flex: 1,
+    marginLeft: spacing.sm,
   },
-  recaptureButton: {
-    alignSelf: 'flex-start',
+  locationActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    flexWrap: 'wrap',
   },
-  recaptureText: {
+  actionLink: {
+    paddingVertical: spacing.xs,
+  },
+  actionLinkText: {
     ...typography.caption,
     color: colors.primary,
     textDecorationLine: 'underline',
   },
+  actionDivider: {
+    ...typography.caption,
+    color: colors.gray[400],
+    marginHorizontal: spacing.sm,
+  },
   locationError: {
+    flexDirection: 'row',
     backgroundColor: colors.errorLight,
     borderRadius: borderRadius.md,
     padding: spacing.md,
   },
+  locationErrorContent: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
   locationErrorText: {
     ...typography.body,
     color: colors.error,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  retryButton: {
+  errorActions: {
+    gap: spacing.sm,
+  },
+  errorButton: {
+    marginBottom: spacing.xs,
+  },
+  switchModeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
     marginTop: spacing.sm,
   },
-  formCard: {
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+  switchModeText: {
+    ...typography.caption,
+    color: colors.primary,
+    marginLeft: spacing.xs,
+  },
+  destinationConfirmed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.successLight,
+    borderRadius: borderRadius.sm,
+  },
+  destinationText: {
+    ...typography.caption,
+    color: colors.success,
+    marginLeft: spacing.xs,
+    flex: 1,
   },
   passengerSection: {
     marginBottom: spacing.lg,
@@ -378,11 +488,43 @@ const styles = StyleSheet.create({
   passengerButtonTextActive: {
     color: colors.white,
   },
+  notesSection: {
+    marginBottom: spacing.sm,
+  },
+  notesLabel: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.gray[700],
+    marginBottom: spacing.sm,
+  },
+  notesInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  noteIcon: {
+    fontSize: 20,
+    marginRight: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  notesTextAreaWrapper: {
+    flex: 1,
+  },
+  notesTextArea: {
+    minHeight: 80,
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    backgroundColor: colors.white,
+    ...typography.body,
+    textAlignVertical: 'top',
+  },
   submitButton: {
     marginBottom: spacing.md,
   },
   emergencySubmitButton: {
     backgroundColor: colors.error,
+    marginBottom: spacing.md,
   },
   infoText: {
     ...typography.caption,

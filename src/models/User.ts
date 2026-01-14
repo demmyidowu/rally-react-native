@@ -50,12 +50,46 @@ export interface User {
   /** Firebase Cloud Messaging token for push notifications */
   fcmToken?: string;
 
+  // DD-specific fields
+  /** Car color (required for DDs before going active) */
+  carColor?: string;
+
+  /** Car make e.g. "Volkswagen" (required for DDs before going active) */
+  carMake?: string;
+
+  /** Car model e.g. "Jetta" (required for DDs before going active) */
+  carModel?: string;
+
+  /** Whether the DD is currently active and accepting rides */
+  isActive?: boolean;
+
+  /** Total number of rides completed by this DD */
+  totalRidesCompleted?: number;
+
   /** Timestamp when the user was created */
   createdAt: Timestamp;
 
   /** Timestamp when the user was last updated */
   updatedAt: Timestamp;
 }
+
+/**
+ * Check if DD has complete car info required to go active
+ */
+export const hasCompleteCarInfo = (user: User): boolean => {
+  return !!(user.carColor && user.carMake && user.carModel);
+};
+
+/**
+ * Format car description for display
+ * @returns e.g. "Blue Volkswagen Jetta"
+ */
+export const formatCarDescription = (user: User): string => {
+  if (!hasCompleteCarInfo(user)) {
+    return 'Unknown vehicle';
+  }
+  return `${user.carColor} ${user.carMake} ${user.carModel}`;
+};
 
 /**
  * Utility function to validate .edu email domain

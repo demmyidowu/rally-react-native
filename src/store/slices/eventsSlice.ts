@@ -60,17 +60,28 @@ export const createEvent = createAsyncThunk(
     {
       name,
       description,
+      location,
       startTime,
       endTime,
       assignedDDs,
       createdBy,
-    }: CreateEventRequest & { createdBy: string },
+      allowAll,
+      allowNonGreek,
+      allowedOrganizationIds,
+    }: CreateEventRequest & {
+      createdBy: string;
+      location?: string;
+      allowAll?: boolean;
+      allowNonGreek?: boolean;
+      allowedOrganizationIds?: string[];
+    },
     { rejectWithValue }
   ) => {
     try {
       const eventData: Omit<EventDocument, 'id'> = {
         name,
         description,
+        location,
         startTime: Timestamp.fromDate(startTime),
         endTime: Timestamp.fromDate(endTime || new Date()),
         status: EventStatus.SCHEDULED,
@@ -78,6 +89,10 @@ export const createEvent = createAsyncThunk(
         createdBy,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
+        // Access controls
+        allowAll: allowAll || false,
+        allowNonGreek: allowNonGreek || false,
+        allowedOrganizationIds: allowedOrganizationIds || [],
       };
 
       const docRef = await addDoc(collection(db, 'events'), eventData);

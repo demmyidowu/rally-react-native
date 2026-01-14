@@ -163,3 +163,35 @@ export { createAdminUser } from "./adminCode";
  * Callable function for admin settings
  */
 export { transferAdminStatus } from "./adminCode";
+
+// ============================================================================
+// GOOGLE PLACES PROXY
+// ============================================================================
+
+/**
+ * Searches for place predictions (address autocomplete)
+ * Callable function - keeps API key server-side
+ */
+export { searchPlaces } from "./placesProxy";
+
+/**
+ * Gets place details including coordinates
+ * Callable function - keeps API key server-side
+ */
+export { getPlaceDetails } from "./placesProxy";
+
+// ============================================================================
+// LOCATION SERVICES
+// ============================================================================
+
+/**
+ * Reverse geocode coordinates to address
+ * Callable function - keeps API key server-side
+ */
+export { reverseGeocode } from "./locationServices";
+
+/**
+ * Calculate driving ETA between two points
+ * Callable function - keeps API key server-side
+ */
+export { calculateETA } from "./locationServices";

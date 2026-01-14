@@ -30,3 +30,5 @@ export * from './Header';
 // Feature Components
 export * from './EmergencyButton';
 export * from './Dropdown';
+export * from './AddressAutocomplete';
+export * from './CarInfoModal';

@@ -153,14 +153,32 @@ export const createDDAssignment = createAsyncThunk(
 // Toggle DD active status
 export const toggleDDActive = createAsyncThunk(
   'ddAssignments/toggleDDActive',
-  async ({ assignmentId, isActive }: { assignmentId: string; isActive: boolean }, { rejectWithValue }) => {
+  async (
+    {
+      assignmentId,
+      isActive,
+      carDescription,
+    }: {
+      assignmentId: string;
+      isActive: boolean;
+      carDescription?: string; // Per-session car info (not persisted in user profile)
+    },
+    { rejectWithValue }
+  ) => {
     try {
       const assignmentRef = doc(db, 'ddAssignments', assignmentId);
-      await updateDoc(assignmentRef, {
+      const updateData: Record<string, any> = {
         isActive,
         lastToggleAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
-      });
+      };
+
+      // Include car description when going active
+      if (isActive && carDescription) {
+        updateData.carDescription = carDescription;
+      }
+
+      await updateDoc(assignmentRef, updateData);
 
       const updatedDoc = await getDoc(assignmentRef);
       return convertAssignmentDocToAssignment(

@@ -161,7 +161,9 @@ export interface RideDocument {
 export interface RideRequest {
   riderId: string;
   pickupLocation: GeoPoint;
+  pickupAddress?: string;
   dropoffLocation?: GeoPoint;
+  dropoffAddress?: string;
   isEmergency: boolean;
   notes?: string;
 }

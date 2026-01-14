@@ -30,7 +30,7 @@ import {
   selectLoading,
 } from '../../store/slices/ddAssignmentsSlice';
 import { selectActiveRides } from '../../store/slices/ridesSlice';
-import { Card, RideCard, StatusBadge } from '../../components';
+import { Card, RideCard, StatusBadge, CarInfoModal, CarInfo } from '../../components';
 import { colors, spacing, typography, borderRadius, shadows } from '../../components/theme';
 
 type Props = DDScreenProps<'DDDashboard'>;
@@ -48,6 +48,7 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const assignedRides = allActiveRides.filter(r => assignedRideIds.includes(r.id));
 
   const [isActive, setIsActive] = useState(myAssignment?.isActive ?? false);
+  const [showCarModal, setShowCarModal] = useState(false);
 
   useEffect(() => {
     if (user?.id && activeEvent?.id) {
@@ -65,19 +66,46 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleToggleActive = async (value: boolean) => {
+  const handleToggleActive = (value: boolean) => {
+    if (!myAssignment) return;
+
+    if (value) {
+      // Going active - show car info modal
+      setShowCarModal(true);
+    } else {
+      // Going inactive - no modal needed
+      confirmToggle(false);
+    }
+  };
+
+  const confirmToggle = async (value: boolean, carInfo?: CarInfo) => {
     if (!myAssignment) return;
 
     try {
       setIsActive(value);
+      const carDescription = carInfo
+        ? `${carInfo.color} ${carInfo.make} ${carInfo.model}`
+        : undefined;
+
       await dispatch(toggleDDActive({
         assignmentId: myAssignment.id,
         isActive: value,
+        carDescription,
       })).unwrap();
     } catch (error: any) {
       setIsActive(!value);
       Alert.alert('Error', error.message || 'Failed to update status');
     }
+  };
+
+  const handleCarInfoConfirm = (carInfo: CarInfo) => {
+    setShowCarModal(false);
+    confirmToggle(true, carInfo);
+  };
+
+  const handleCarInfoCancel = () => {
+    setShowCarModal(false);
+    // Don't toggle - user cancelled
   };
 
   const handleViewRide = (rideId: string) => {
@@ -208,12 +236,19 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* Tips */}
         <Card style={styles.tipsCard}>
           <Text style={styles.tipsTitle}>💡 DD Tips</Text>
-          <Text style={styles.tipItem}>• Stay active to receive ride assignments</Text>
-          <Text style={styles.tipItem}>• Mark "En Route" when you start heading to rider</Text>
-          <Text style={styles.tipItem}>• Complete rides promptly to help more members</Text>
-          <Text style={styles.tipItem}>• Avoid toggling inactive frequently</Text>
+          <Text style={styles.tipItem}>• Enter your car info when going active</Text>
+          <Text style={styles.tipItem}>• Accept rides promptly - you're automatically en route</Text>
+          <Text style={styles.tipItem}>• Complete rides to help more members</Text>
+          <Text style={styles.tipItem}>• Tap the pickup address to open in Maps</Text>
         </Card>
       </ScrollView>
+
+      {/* Car Info Modal - shown when trying to go active */}
+      <CarInfoModal
+        visible={showCarModal}
+        onConfirm={handleCarInfoConfirm}
+        onCancel={handleCarInfoCancel}
+      />
     </SafeAreaView>
   );
 };

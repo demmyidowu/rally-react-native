@@ -36,9 +36,27 @@ export interface Event {
 
   /**
    * Array of chapter IDs allowed to request rides for this event
-   * Use ["ALL"] for events open to all chapters (cross-chapter events)
+   * @deprecated Use allowedOrganizationIds instead
    */
   allowedChapterIds?: string[];
+
+  /**
+   * Array of organization/chapter IDs allowed to request rides
+   * When empty and allowAll is false, only hosting chapter can request
+   */
+  allowedOrganizationIds?: string[];
+
+  /**
+   * If true, anyone can request a ride from this event
+   * Overrides allowedOrganizationIds
+   */
+  allowAll?: boolean;
+
+  /**
+   * If true, users without a Greek organization can request rides
+   * Only applies when allowAll is false
+   */
+  allowNonGreek?: boolean;
 
   /** Current status of the event */
   status: EventStatus;
@@ -96,6 +114,9 @@ export interface EventDocument {
   description?: string;
   date?: Timestamp;
   allowedChapterIds?: string[];
+  allowedOrganizationIds?: string[];
+  allowAll?: boolean;
+  allowNonGreek?: boolean;
   status: EventStatus;
   location?: string;
   startTime: Timestamp;

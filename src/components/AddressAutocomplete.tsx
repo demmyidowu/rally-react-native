@@ -1,8 +1,8 @@
 /**
  * AddressAutocomplete Component
  *
- * Google Places-powered address autocomplete input.
- * Returns address string along with latitude/longitude coordinates.
+ * Address autocomplete using Cloud Function proxy to Google Places API.
+ * This keeps the API key secure on the server side.
  *
  * Usage:
  * ```tsx
@@ -16,16 +16,24 @@
  * ```
  */
 
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
 import {
-    GooglePlacesAutocomplete,
-    GooglePlacesAutocompleteRef,
-} from 'react-native-google-places-autocomplete';
+    View,
+    Text,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    FlatList,
+    ActivityIndicator,
+    Platform,
+} from 'react-native';
 import { colors, spacing, typography, borderRadius } from './theme';
-
-// TODO: Move to environment variable
-const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '';
+import {
+    searchPlaces,
+    getPlaceDetails,
+    generateSessionToken,
+    PlacePrediction,
+} from '../services/placesService';
 
 export interface AddressAutocompleteProps {
     label?: string;
@@ -46,30 +54,77 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     editable = true,
     error,
 }) => {
-    const ref = useRef<GooglePlacesAutocompleteRef>(null);
+    const [inputValue, setInputValue] = useState(initialValue || '');
+    const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const sessionTokenRef = useRef<string>(generateSessionToken());
+    const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Set initial value if provided
-    React.useEffect(() => {
-        if (initialValue && ref.current) {
-            ref.current.setAddressText(initialValue);
+    const handleSearch = useCallback(async (text: string) => {
+        if (text.length < 2) {
+            setPredictions([]);
+            setShowDropdown(false);
+            return;
         }
-    }, [initialValue]);
 
-    const handlePress = (data: any, details: any | null) => {
-        if (details?.geometry?.location) {
-            const { lat, lng } = details.geometry.location;
-            const address = data.description || details.formatted_address || '';
-            onAddressSelect(address, lat, lng);
-        } else {
-            // Fallback if no geometry (should rarely happen)
-            onError?.('Could not get coordinates for this address');
+        setIsLoading(true);
+        try {
+            const results = await searchPlaces(text, sessionTokenRef.current);
+            setPredictions(results);
+            setShowDropdown(results.length > 0);
+        } catch (err: any) {
+            console.error('Search error:', err);
+            onError?.(err.message || 'Failed to search addresses');
+            setPredictions([]);
+        } finally {
+            setIsLoading(false);
         }
-    };
+    }, [onError]);
 
-    const handleFail = (error: any) => {
-        console.error('Google Places error:', error);
-        onError?.('Failed to fetch address suggestions');
-    };
+    const handleInputChange = useCallback((text: string) => {
+        setInputValue(text);
+
+        // Debounce API calls
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+        }
+        debounceRef.current = setTimeout(() => {
+            handleSearch(text);
+        }, 300);
+    }, [handleSearch]);
+
+    const handleSelectPrediction = useCallback(async (prediction: PlacePrediction) => {
+        setInputValue(prediction.description);
+        setShowDropdown(false);
+        setPredictions([]);
+        setIsLoading(true);
+
+        try {
+            const details = await getPlaceDetails(
+                prediction.placeId,
+                sessionTokenRef.current
+            );
+            // Generate new session token for next search
+            sessionTokenRef.current = generateSessionToken();
+            onAddressSelect(details.formattedAddress, details.latitude, details.longitude);
+        } catch (err: any) {
+            console.error('Get details error:', err);
+            onError?.(err.message || 'Failed to get address details');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [onAddressSelect, onError]);
+
+    const renderPrediction = ({ item }: { item: PlacePrediction }) => (
+        <TouchableOpacity
+            style={styles.predictionRow}
+            onPress={() => handleSelectPrediction(item)}
+        >
+            <Text style={styles.predictionMain}>{item.mainText}</Text>
+            <Text style={styles.predictionSecondary}>{item.secondaryText}</Text>
+        </TouchableOpacity>
+    );
 
     return (
         <View style={styles.container}>
@@ -79,62 +134,39 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
                 error && styles.inputContainerError,
                 !editable && styles.inputContainerDisabled,
             ]}>
-                <GooglePlacesAutocomplete
-                    ref={ref}
+                <TextInput
+                    style={styles.textInput}
+                    value={inputValue}
+                    onChangeText={handleInputChange}
                     placeholder={placeholder}
-                    onPress={handlePress}
-                    onFail={handleFail}
-                    fetchDetails={true}
-                    enablePoweredByContainer={false}
-                    minLength={2}
-                    debounce={300}
-                    query={{
-                        key: GOOGLE_PLACES_API_KEY,
-                        language: 'en',
-                        components: 'country:us', // Restrict to US addresses
-                    }}
-                    styles={{
-                        container: styles.autocompleteContainer,
-                        textInputContainer: styles.textInputContainer,
-                        textInput: [
-                            styles.textInput,
-                            !editable && styles.textInputDisabled,
-                        ],
-                        listView: styles.listView,
-                        row: styles.row,
-                        separator: styles.separator,
-                        description: styles.description,
-                        loader: styles.loader,
-                    }}
-                    textInputProps={{
-                        editable,
-                        placeholderTextColor: colors.gray[400],
-                        autoCapitalize: 'words',
-                        autoCorrect: false,
-                    }}
-                    // Near Manhattan, KS for better local results
-                    predefinedPlacesAlwaysVisible={false}
-                    nearbyPlacesAPI="GooglePlacesSearch"
-                    GooglePlacesSearchQuery={{
-                        rankby: 'distance',
-                    }}
-                    GooglePlacesDetailsQuery={{
-                        fields: 'formatted_address,geometry',
-                    }}
-                    filterReverseGeocodingByTypes={[
-                        'locality',
-                        'administrative_area_level_3',
-                    ]}
+                    placeholderTextColor={colors.gray[400]}
+                    editable={editable}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    onFocus={() => predictions.length > 0 && setShowDropdown(true)}
                 />
+                {isLoading && (
+                    <ActivityIndicator
+                        size="small"
+                        color={colors.primary}
+                        style={styles.loader}
+                    />
+                )}
             </View>
-            {error && (
-                <Text style={styles.errorText}>{error}</Text>
+
+            {showDropdown && predictions.length > 0 && (
+                <View style={styles.dropdown}>
+                    <FlatList
+                        data={predictions}
+                        renderItem={renderPrediction}
+                        keyExtractor={(item) => item.placeId}
+                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                        keyboardShouldPersistTaps="handled"
+                    />
+                </View>
             )}
-            {!GOOGLE_PLACES_API_KEY && (
-                <Text style={styles.warningText}>
-                    ⚠️ Google Places API key not configured
-                </Text>
-            )}
+
+            {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
     );
 };
@@ -142,6 +174,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 const styles = StyleSheet.create({
     container: {
         marginBottom: spacing.md,
+        zIndex: 1000,
     },
     label: {
         ...typography.body,
@@ -150,6 +183,8 @@ const styles = StyleSheet.create({
         marginBottom: spacing.xs,
     },
     inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         borderWidth: 1,
         borderColor: colors.gray[300],
         borderRadius: borderRadius.md,
@@ -162,40 +197,26 @@ const styles = StyleSheet.create({
     inputContainerDisabled: {
         backgroundColor: colors.gray[100],
     },
-    autocompleteContainer: {
-        flex: 0,
-    },
-    textInputContainer: {
-        backgroundColor: 'transparent',
-        borderTopWidth: 0,
-        borderBottomWidth: 0,
-    },
     textInput: {
+        flex: 1,
         ...typography.body,
         color: colors.gray[800],
-        height: 46,
         paddingHorizontal: spacing.md,
-        paddingVertical: 0,
-        marginTop: 0,
-        marginBottom: 0,
-        marginLeft: 0,
-        marginRight: 0,
-        backgroundColor: 'transparent',
+        paddingVertical: spacing.sm,
     },
-    textInputDisabled: {
-        color: colors.gray[500],
+    loader: {
+        marginRight: spacing.md,
     },
-    listView: {
+    dropdown: {
         position: 'absolute',
-        top: 48,
+        top: 80,
         left: 0,
         right: 0,
+        maxHeight: 200,
         backgroundColor: colors.white,
         borderWidth: 1,
         borderColor: colors.gray[200],
         borderRadius: borderRadius.md,
-        zIndex: 1000,
-        elevation: 5,
         ...Platform.select({
             ios: {
                 shadowColor: colors.gray[900],
@@ -208,31 +229,26 @@ const styles = StyleSheet.create({
             },
         }),
     },
-    row: {
-        backgroundColor: colors.white,
+    predictionRow: {
         padding: spacing.md,
+    },
+    predictionMain: {
+        ...typography.body,
+        color: colors.gray[800],
+        fontWeight: '500',
+    },
+    predictionSecondary: {
+        ...typography.caption,
+        color: colors.gray[500],
+        marginTop: 2,
     },
     separator: {
         height: 1,
         backgroundColor: colors.gray[100],
     },
-    description: {
-        ...typography.body,
-        color: colors.gray[700],
-    },
-    loader: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        padding: spacing.sm,
-    },
     errorText: {
         ...typography.caption,
         color: colors.error,
-        marginTop: spacing.xs,
-    },
-    warningText: {
-        ...typography.caption,
-        color: colors.warning,
         marginTop: spacing.xs,
     },
 });
