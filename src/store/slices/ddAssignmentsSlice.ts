@@ -25,6 +25,7 @@ import {
   query,
   where,
   Timestamp,
+  limit,
 } from 'firebase/firestore';
 
 // State interface
@@ -107,6 +108,91 @@ export const fetchMyDDAssignment = createAsyncThunk(
   }
 );
 
+// Fetch DD's assignment for the currently active event (finds assignment regardless of which event)
+export const fetchMyActiveEventAssignment = createAsyncThunk(
+  'ddAssignments/fetchMyActiveEventAssignment',
+  async ({ ddId, chapterId }: { ddId: string; chapterId?: string }, { rejectWithValue }) => {
+    try {
+      console.log('[DDAssignments] Fetching assignment for ddId:', ddId, 'chapterId:', chapterId);
+
+      // First find the active event for this chapter
+      let activeEventQuery;
+      if (chapterId) {
+        activeEventQuery = query(
+          collection(db, 'events'),
+          where('status', '==', 'active'),
+          where('chapterId', '==', chapterId),
+          limit(1)
+        );
+      } else {
+        activeEventQuery = query(
+          collection(db, 'events'),
+          where('status', '==', 'active'),
+          limit(1)
+        );
+      }
+
+      const activeEventSnapshot = await getDocs(activeEventQuery);
+      if (activeEventSnapshot.empty) {
+        console.log('[DDAssignments] No active event found for chapterId:', chapterId);
+        return { assignment: null, activeEvent: null };
+      }
+
+      const activeEventDoc = activeEventSnapshot.docs[0];
+      const activeEventId = activeEventDoc.id;
+      const activeEventData = activeEventDoc.data();
+      console.log('[DDAssignments] Active event found:', {
+        id: activeEventId,
+        name: activeEventData.name,
+        status: activeEventData.status,
+        chapterId: activeEventData.chapterId,
+        assignedDDs: activeEventData.assignedDDs,
+      });
+
+      // Now find the DD's assignment for this active event
+      console.log('[DDAssignments] Querying ddAssignments with eventId:', activeEventId, 'ddId:', ddId);
+      const assignmentQuery = query(
+        collection(db, 'ddAssignments'),
+        where('eventId', '==', activeEventId),
+        where('ddId', '==', ddId)
+      );
+
+      const assignmentSnapshot = await getDocs(assignmentQuery);
+      if (assignmentSnapshot.empty) {
+        console.log('[DDAssignments] No assignment found for ddId:', ddId, 'in eventId:', activeEventId);
+        // Also log all assignments for this event to debug
+        const allAssignmentsQuery = query(
+          collection(db, 'ddAssignments'),
+          where('eventId', '==', activeEventId)
+        );
+        const allAssignmentsSnapshot = await getDocs(allAssignmentsQuery);
+        console.log('[DDAssignments] All assignments for this event:',
+          allAssignmentsSnapshot.docs.map(d => ({ id: d.id, ddId: d.data().ddId, ddName: d.data().ddName }))
+        );
+        return { assignment: null, activeEvent: { id: activeEventId, name: activeEventDoc.data().name } };
+      }
+
+      const assignmentDoc = assignmentSnapshot.docs[0];
+      console.log('[DDAssignments] Assignment found:', {
+        id: assignmentDoc.id,
+        ddId: assignmentDoc.data().ddId,
+        ddName: assignmentDoc.data().ddName,
+        isActive: assignmentDoc.data().isActive,
+      });
+      return {
+        assignment: convertAssignmentDocToAssignment(
+          assignmentDoc.id,
+          assignmentDoc.data() as DDAssignmentDocument
+        ),
+        activeEvent: { id: activeEventId, name: activeEventDoc.data().name },
+      };
+    } catch (error: any) {
+      console.error('[DDAssignments] Error in fetchMyActiveEventAssignment:', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // Create DD assignment
 export const createDDAssignment = createAsyncThunk(
   'ddAssignments/createDDAssignment',
@@ -166,6 +252,7 @@ export const toggleDDActive = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
+      console.log('[toggleDDActive] Starting toggle with:', { assignmentId, isActive, carDescription });
       const assignmentRef = doc(db, 'ddAssignments', assignmentId);
       const updateData: Record<string, any> = {
         isActive,
@@ -178,15 +265,38 @@ export const toggleDDActive = createAsyncThunk(
         updateData.carDescription = carDescription;
       }
 
+      // Track inactive toggles for monitoring
+      if (!isActive) {
+        const currentDoc = await getDoc(assignmentRef);
+        const currentToggles = currentDoc.data()?.inactiveToggles || 0;
+        updateData.inactiveToggles = currentToggles + 1;
+        updateData.lastInactiveTimestamp = Timestamp.now();
+      } else {
+        updateData.lastActiveTimestamp = Timestamp.now();
+      }
+
+      console.log('[toggleDDActive] Updating document with:', updateData);
       await updateDoc(assignmentRef, updateData);
+      console.log('[toggleDDActive] Update successful');
 
       const updatedDoc = await getDoc(assignmentRef);
-      return convertAssignmentDocToAssignment(
+      const assignment = convertAssignmentDocToAssignment(
         assignmentId,
         updatedDoc.data() as DDAssignmentDocument
       );
+
+      // Note: Auto-assignment when DD goes active is handled by Cloud Functions
+      // when new rides are created, not here (to avoid circular dependencies)
+      if (isActive) {
+        console.log('[ToggleDDActive] DD went active for eventId:', assignment.eventId);
+      }
+
+      return assignment;
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      console.error('[toggleDDActive] Error:', error);
+      console.error('[toggleDDActive] Error code:', error.code);
+      console.error('[toggleDDActive] Error message:', error.message);
+      return rejectWithValue(error.message || 'Failed to update status');
     }
   }
 );
@@ -354,6 +464,20 @@ const ddAssignmentsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchMyDDAssignment.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      // fetchMyActiveEventAssignment cases
+      .addCase(fetchMyActiveEventAssignment.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchMyActiveEventAssignment.fulfilled, (state, action) => {
+        state.loading = false;
+        state.myAssignment = action.payload.assignment;
+        state.error = null;
+      })
+      .addCase(fetchMyActiveEventAssignment.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

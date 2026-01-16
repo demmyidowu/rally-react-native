@@ -1,7 +1,7 @@
 /**
  * Create Event Screen
  *
- * Form to create a new event with organization access controls.
+ * Form to create a new event with organization access controls and date selection.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -17,14 +17,14 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { AdminScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { createEvent, selectLoading } from '../../store/slices/eventsSlice';
 import { Header, Input, Button, Card } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { fetchChaptersForUniversity, getUniversityIdFromChapterId } from '../../services/chapterService';
 
 type Props = AdminScreenProps<'CreateEvent'>;
 
@@ -43,6 +43,26 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
 
+  // Date and time - default to today at 8 PM to midnight
+  const getDefaultStartTime = () => {
+    const date = new Date();
+    date.setHours(20, 0, 0, 0); // 8 PM
+    return date;
+  };
+  const getDefaultEndTime = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1); // Next day
+    date.setHours(0, 0, 0, 0); // Midnight
+    return date;
+  };
+
+  const [eventDate, setEventDate] = useState(new Date());
+  const [startTime, setStartTime] = useState(getDefaultStartTime());
+  const [endTime, setEndTime] = useState(getDefaultEndTime());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+
   // Access controls
   const [allowAll, setAllowAll] = useState(false);
   const [allowNonGreek, setAllowNonGreek] = useState(false);
@@ -52,34 +72,30 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Fetch organizations from same university
+  // Fetch chapters from Firestore
   useEffect(() => {
-    const fetchOrganizations = async () => {
-      if (!user?.universityId) {
-        setLoadingOrgs(false);
-        return;
-      }
+    const loadOrganizations = async () => {
+      // Get the university ID from the user's chapter
+      const universityId = user?.chapterId
+        ? getUniversityIdFromChapterId(user.chapterId)
+        : 'ksu';
 
       try {
-        const chaptersQuery = query(
-          collection(db, 'chapters'),
-          where('universityId', '==', user.universityId)
-        );
-        const snapshot = await getDocs(chaptersQuery);
-        const orgs: Organization[] = snapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name || 'Unknown Chapter',
+        const chapters = await fetchChaptersForUniversity(universityId);
+        const orgs: Organization[] = chapters.map(chapter => ({
+          id: chapter.id,
+          name: chapter.name,
         }));
         setOrganizations(orgs);
       } catch (error) {
-        console.error('Failed to fetch organizations:', error);
+        console.error('Failed to load organizations:', error);
       } finally {
         setLoadingOrgs(false);
       }
     };
 
-    fetchOrganizations();
-  }, [user?.universityId]);
+    loadOrganizations();
+  }, [user?.chapterId]);
 
   const toggleOrganization = (orgId: string) => {
     setSelectedOrgs(prev =>
@@ -110,15 +126,27 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    // Combine date with times
+    const combinedStartTime = new Date(eventDate);
+    combinedStartTime.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+
+    const combinedEndTime = new Date(eventDate);
+    combinedEndTime.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+    // If end time is before start time, assume it's the next day
+    if (combinedEndTime <= combinedStartTime) {
+      combinedEndTime.setDate(combinedEndTime.getDate() + 1);
+    }
+
     try {
       await dispatch(createEvent({
         name: name.trim(),
         description: description.trim() || undefined,
         location: location.trim() || undefined,
-        startTime: new Date(),
-        endTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
+        startTime: combinedStartTime,
+        endTime: combinedEndTime,
         assignedDDs: [],
         createdBy: user.id,
+        chapterId: user.chapterId,
         // Access controls
         allowAll,
         allowNonGreek,
@@ -173,6 +201,105 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
               numberOfLines={3}
               editable={!loading}
             />
+          </Card>
+
+          {/* Date and Time */}
+          <Card style={styles.formCard}>
+            <Text style={styles.sectionTitle}>Date & Time</Text>
+
+            {/* Event Date */}
+            <View style={styles.dateTimeRow}>
+              <Text style={styles.dateTimeLabel}>Event Date</Text>
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowDatePicker(!showDatePicker)}
+                disabled={loading}
+              >
+                <Text style={styles.dateTimeValue}>
+                  {eventDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Start Time */}
+            <View style={styles.dateTimeRow}>
+              <Text style={styles.dateTimeLabel}>Start Time</Text>
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowStartTimePicker(!showStartTimePicker)}
+                disabled={loading}
+              >
+                <Text style={styles.dateTimeValue}>
+                  {startTime.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* End Time */}
+            <View style={styles.dateTimeRow}>
+              <Text style={styles.dateTimeLabel}>End Time</Text>
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowEndTimePicker(!showEndTimePicker)}
+                disabled={loading}
+              >
+                <Text style={styles.dateTimeValue}>
+                  {endTime.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Date Picker */}
+            {showDatePicker && (
+              <DateTimePicker
+                value={eventDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                minimumDate={new Date()}
+                onChange={(_event, date) => {
+                  setShowDatePicker(Platform.OS === 'ios');
+                  if (date) setEventDate(date);
+                }}
+              />
+            )}
+
+            {/* Start Time Picker */}
+            {showStartTimePicker && (
+              <DateTimePicker
+                value={startTime}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_event, time) => {
+                  setShowStartTimePicker(Platform.OS === 'ios');
+                  if (time) setStartTime(time);
+                }}
+              />
+            )}
+
+            {/* End Time Picker */}
+            {showEndTimePicker && (
+              <DateTimePicker
+                value={endTime}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_event, time) => {
+                  setShowEndTimePicker(Platform.OS === 'ios');
+                  if (time) setEndTime(time);
+                }}
+              />
+            )}
           </Card>
 
           {/* Access Controls */}
@@ -266,7 +393,6 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
           {/* Info */}
           <Card style={styles.infoCard}>
             <Text style={styles.infoTitle}>ℹ️ Event Info</Text>
-            <Text style={styles.infoText}>• Event starts immediately after creation</Text>
             <Text style={styles.infoText}>• Assign DDs after creating the event</Text>
             <Text style={styles.infoText}>• DDs from your chapter will handle rides</Text>
           </Card>
@@ -416,6 +542,30 @@ const styles = StyleSheet.create({
   },
   createButton: {
     marginBottom: spacing.xl,
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  dateTimeLabel: {
+    ...typography.body,
+    color: colors.gray[700],
+    fontWeight: '500',
+  },
+  dateTimeButton: {
+    backgroundColor: colors.gray[100],
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  dateTimeValue: {
+    ...typography.body,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });
 

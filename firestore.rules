@@ -11,12 +11,23 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isEduEmail() {
+      return request.auth.token.email.matches('.*\\.edu$');
+    }
+    
+    // Alias for backward compatibility
     function isKSUEmail() {
-      return request.auth.token.email.matches('.*@ksu\\.edu$');
+      return isEduEmail();
     }
 
+    // Check email verification from Firestore user document
+    // This is more reliable than request.auth.token.email_verified which can be stale
     function isEmailVerified() {
-      return request.auth.token.email_verified == true;
+      // First try the token (faster, works after re-login)
+      // If token says verified, we're good
+      // Otherwise fall back to Firestore check (handles stale tokens)
+      return request.auth.token.email_verified == true ||
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEmailVerified == true;
     }
 
     function hasAccess() {
@@ -44,31 +55,30 @@ service cloud.firestore {
     // ========================================
 
     match /users/{userId} {
-      // Anyone signed in with verified KSU email can read users
-      allow read: if hasAccess();
+      // Users can read their own document (even before verification for signup flow)
+      // Other users require full verification
+      allow read: if isSignedIn() && (request.auth.uid == userId || hasAccess());
 
-      // Users can create their own account (during signup)
+      // Users can create their own account (during signup, before email verified)
       allow create: if isSignedIn() &&
                        isKSUEmail() &&
-                       isEmailVerified() &&
                        request.auth.uid == userId &&
-                       request.resource.data.email == request.auth.token.email &&
-                       request.resource.data.isEmailVerified == true;
+                       request.resource.data.email == request.auth.token.email;
 
-      // Users can update their own profile OR admins can update anyone
-      allow update: if isOwner(userId) || isAdmin();
+      // Users can update their own profile (even before verification) OR admins can update anyone
+      allow update: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
 
       // Only admins can delete users
       allow delete: if isAdmin();
     }
 
     // ========================================
-    // CHAPTERS COLLECTION
+    // CHAPTERS COLLECTION (under universities)
     // ========================================
 
-    match /chapters/{chapterId} {
-      // All verified users can read chapters
-      allow read: if hasAccess();
+    match /universities/{universityId}/chapters/{chapterId} {
+      // All signed-in users can read chapters (needed during signup flow)
+      allow read: if isSignedIn();
 
       // Only admins can create, update, or delete chapters
       allow create, update, delete: if isAdmin();
@@ -97,7 +107,7 @@ service cloud.firestore {
       // Only admins can create, update, or delete events
       allow create, update, delete: if isAdmin();
 
-      // DD Assignments Subcollection
+      // DD Assignments Subcollection (legacy - keep for backward compatibility)
       match /ddAssignments/{assignmentId} {
         // Anyone can read DD assignments
         allow read: if hasAccess();
@@ -108,6 +118,24 @@ service cloud.firestore {
         // Admins OR the DD themselves can update their assignment
         allow update: if isAdmin() || isOwner(assignmentId);
       }
+    }
+
+    // ========================================
+    // DD ASSIGNMENTS COLLECTION (top-level)
+    // ========================================
+
+    match /ddAssignments/{assignmentId} {
+      // All verified users can read DD assignments
+      allow read: if hasAccess();
+
+      // Only admins can create or delete DD assignments
+      allow create, delete: if isAdmin();
+
+      // Admins OR the DD themselves can update their assignment
+      allow update: if hasAccess() && (
+        isAdmin() || 
+        request.auth.uid == resource.data.ddId
+      );
     }
 
     // ========================================
@@ -130,6 +158,30 @@ service cloud.firestore {
 
       // Only admins can delete rides (for cleanup)
       allow delete: if isAdmin();
+    }
+
+    // ========================================
+    // JOIN REQUESTS COLLECTION
+    // ========================================
+
+    match /joinRequests/{requestId} {
+      // Users can read their own join requests (even before full verification)
+      // Admins can read requests for their chapter
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId ||
+        (hasAccess() && isAdmin() && getUserData().chapterId == resource.data.chapterId)
+      );
+
+      // Users can create their own join requests
+      allow create: if isSignedIn() &&
+                       isKSUEmail() &&
+                       request.auth.uid == request.resource.data.userId;
+
+      // Admins can update requests (approve/reject) for their chapter
+      allow update: if isAdmin() && getUserData().chapterId == resource.data.chapterId;
+
+      // Users can delete (cancel) their own pending requests
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
 
     // ========================================

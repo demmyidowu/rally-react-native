@@ -16,6 +16,7 @@ import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/fire
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
+import { defineSecret } from "firebase-functions/params";
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
@@ -25,8 +26,8 @@ if (getApps().length === 0) {
 const db = getFirestore();
 const messaging = getMessaging();
 
-// Google Maps API Key for ETA calculation
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_PLACES_API_KEY || "";
+// Define the secret for Google Maps API
+const googleMapsApiKey = defineSecret("GOOGLE_PLACES_API_KEY");
 
 /**
  * Calculate driving ETA between two points
@@ -37,7 +38,8 @@ async function calculateDrivingETA(
   destLat: number,
   destLng: number
 ): Promise<number> {
-  if (!GOOGLE_MAPS_API_KEY) {
+  const apiKey = googleMapsApiKey.value();
+  if (!apiKey) {
     logger.warn("No Google Maps API key, returning default ETA");
     return 15; // Default 15 min
   }
@@ -46,7 +48,7 @@ async function calculateDrivingETA(
     const params = new URLSearchParams({
       origins: `${originLat},${originLng}`,
       destinations: `${destLat},${destLng}`,
-      key: GOOGLE_MAPS_API_KEY,
+      key: apiKey,
       mode: "driving",
     });
 
@@ -202,6 +204,7 @@ export const notifyRiderEnRoute = onDocumentUpdated(
     region: "us-central1",
     timeoutSeconds: 60,
     memory: "512MiB",
+    secrets: [googleMapsApiKey],
   },
   async (event) => {
     const before = event.data?.before.data();

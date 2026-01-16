@@ -14,8 +14,8 @@ import RiderDashboardScreen from '../screens/Rider/RiderDashboardScreen';
 import RequestRideScreen from '../screens/Rider/RequestRideScreen';
 import MyRidesScreen from '../screens/Rider/MyRidesScreen';
 import RideDetailsScreen from '../screens/Rider/RideDetailsScreen';
-import QueueStatusScreen from '../screens/Rider/QueueStatusScreen';
 import JoinChapterScreen from '../screens/Rider/JoinChapterScreen';
+import ProfileScreen from '../screens/Rider/ProfileScreen';
 
 const Stack = createStackNavigator<RiderStackParamList>();
 
@@ -65,17 +65,18 @@ export const RiderNavigator: React.FC = () => {
         }}
       />
       <Stack.Screen
-        name="QueueStatus"
-        component={QueueStatusScreen}
-        options={{
-          title: 'Queue Status',
-        }}
-      />
-      <Stack.Screen
         name="JoinChapter"
         component={JoinChapterScreen}
         options={{
           title: 'Join a Chapter',
+        }}
+      />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'Profile',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

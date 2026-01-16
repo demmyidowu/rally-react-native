@@ -69,14 +69,9 @@ const MyRidesScreen: React.FC<Props> = ({ navigation }) => {
 
   const filteredRides = getFilteredRides();
 
-  const handleRidePress = (ride: Ride) => {
-    navigation.navigate('RideDetails', { rideId: ride.id });
-  };
-
   const renderRide = ({ item }: { item: Ride }) => (
     <RideCard
       ride={item}
-      onPress={() => handleRidePress(item)}
       showActions={false}
       style={styles.rideCard}
     />

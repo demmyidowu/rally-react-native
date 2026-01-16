@@ -195,3 +195,21 @@ export { reverseGeocode } from "./locationServices";
  * Callable function - keeps API key server-side
  */
 export { calculateETA } from "./locationServices";
+
+// ============================================================================
+// SEED DATA (One-time setup)
+// ============================================================================
+
+/**
+ * Seeds chapters data into Firestore
+ * One-time HTTP trigger - call via curl after deployment
+ */
+export { seedChapters } from "./seedData";
+
+/**
+ * Fixes university data (adds missing adminCode)
+ * Call with ?code=YOUR_ADMIN_CODE
+ */
+export { fixUniversityData } from "./fixData";
+
+

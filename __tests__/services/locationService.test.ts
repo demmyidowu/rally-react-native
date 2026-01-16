@@ -19,9 +19,6 @@ import {
   locationService,
   LocationServiceError,
   LocationErrorType,
-  LocationResult,
-  LocationWithAddress,
-  AddressDetails,
 } from '../../src/services/locationService';
 
 // Mock expo-location

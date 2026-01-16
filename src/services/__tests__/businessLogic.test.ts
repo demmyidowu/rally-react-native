@@ -129,7 +129,7 @@ describe('Ride Queue Priority Algorithm', () => {
 
     it('uses correct wait time weight (0.5)', () => {
       // Test by varying wait time only
-      const wait0 = calculatePriority(0, 0, false, true); // 0
+      // wait0 = calculatePriority(0, 0, false, true) = 0
       const wait10 = calculatePriority(0, 10, false, true); // 5
       const wait20 = calculatePriority(0, 20, false, true); // 10
 

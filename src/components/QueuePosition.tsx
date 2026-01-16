@@ -1,10 +1,10 @@
 /**
  * QueuePosition Component
- * Display queue position with animated progress indicator
+ * Display queue position indicator
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from './theme';
 
@@ -19,23 +19,6 @@ export const QueuePosition: React.FC<QueuePositionProps> = ({
   totalInQueue,
   estimatedWaitTime,
 }) => {
-  const progressAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const progress = totalInQueue > 0 ? (totalInQueue - position) / totalInQueue : 0;
-    Animated.spring(progressAnim, {
-      toValue: progress,
-      useNativeDriver: false,
-      tension: 50,
-      friction: 7,
-    }).start();
-  }, [position, totalInQueue]);
-
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
   const formatWaitTime = (minutes: number): string => {
     if (minutes < 60) return `${Math.round(minutes)} min`;
     const hours = Math.floor(minutes / 60);
@@ -70,27 +53,10 @@ export const QueuePosition: React.FC<QueuePositionProps> = ({
           <View style={styles.positionInfo}>
             <Text style={styles.positionLabel}>Position in Queue</Text>
             <Text style={styles.totalInQueue}>
-              {totalInQueue} {totalInQueue === 1 ? 'ride' : 'rides'} in queue
+              {totalInQueue} {totalInQueue === 1 ? 'ride' : 'rides'} ahead of you
             </Text>
           </View>
         </View>
-      </View>
-
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <Animated.View
-            style={[
-              styles.progressFill,
-              {
-                width: progressWidth,
-                backgroundColor: positionColor,
-              },
-            ]}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {Math.round(((totalInQueue - position) / totalInQueue) * 100)}% Complete
-        </Text>
       </View>
 
       {estimatedWaitTime !== undefined && (
@@ -154,25 +120,6 @@ const styles = StyleSheet.create({
   totalInQueue: {
     ...typography.caption,
     color: colors.gray[600],
-  },
-  progressContainer: {
-    marginBottom: spacing.md,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: colors.gray[200],
-    borderRadius: borderRadius.sm,
-    overflow: 'hidden',
-    marginBottom: spacing.xs,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: borderRadius.sm,
-  },
-  progressText: {
-    ...typography.small,
-    color: colors.gray[600],
-    textAlign: 'right',
   },
   waitTimeContainer: {
     flexDirection: 'row',

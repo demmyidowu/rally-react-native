@@ -122,7 +122,7 @@ async function createEmergencyAlert(data: {
 async function notifyChapterAdmins(
   chapterId: string,
   rideId: string,
-  riderName: string
+  _riderName: string
 ): Promise<void> {
   try {
     // Fetch all admins for this chapter

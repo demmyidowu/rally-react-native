@@ -127,7 +127,7 @@ const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.searchContainer}>
         <Input
           label="Search"
-          placeholder="Search DDs..."
+          placeholder="Search Member..."
           value={searchQuery}
           onChangeText={setSearchQuery}
         />

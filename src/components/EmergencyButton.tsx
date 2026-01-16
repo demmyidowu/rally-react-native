@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './Button';
@@ -79,16 +78,16 @@ export const EmergencyButton: React.FC<EmergencyButtonProps> = ({
             </Text>
             <View style={styles.modalActions}>
               <Button
-                title="Cancel"
-                onPress={handleCancel}
-                variant="secondary"
+                title="Confirm Emergency"
+                onPress={handleConfirm}
+                variant="danger"
                 fullWidth
               />
               <View style={styles.buttonSpacer} />
               <Button
-                title="Confirm Emergency"
-                onPress={handleConfirm}
-                variant="danger"
+                title="Cancel"
+                onPress={handleCancel}
+                variant="secondary"
                 fullWidth
               />
             </View>
@@ -167,10 +166,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   modalActions: {
-    flexDirection: Platform.OS === 'ios' ? 'row-reverse' : 'row',
-    gap: spacing.md,
+    flexDirection: 'column',
   },
   buttonSpacer: {
-    width: spacing.md,
+    height: spacing.md,
   },
 });

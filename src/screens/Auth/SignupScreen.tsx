@@ -46,8 +46,17 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
   const [adminCode, setAdminCode] = useState('');
   const [adminCodeValid, setAdminCodeValid] = useState<boolean | null>(null);
   const [validatingCode, setValidatingCode] = useState(false);
+  const [selectedClassYear, setSelectedClassYear] = useState('');
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Class year options for prioritization
+  const classYearOptions = useMemo(() => [
+    { label: 'Freshman', value: '1' },
+    { label: 'Sophomore', value: '2' },
+    { label: 'Junior', value: '3' },
+    { label: 'Senior', value: '4' },
+  ], []);
 
   // Get university options
   const universityOptions = useMemo(() =>
@@ -124,7 +133,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
     setValidatingCode(true);
     try {
       // Call the Cloud Function to validate admin code
-      const response = await fetch(`https://us-central1-rallyride-17c2c.cloudfunctions.net/validateAdminCode`, {
+      const response = await fetch(`https://us-central1-ddride-didowu.cloudfunctions.net/validateAdminCode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +187,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
         name.trim(),
         undefined,
         selectedChapter,
-        1,
+        parseInt(selectedClassYear) || 1,
         isChapterAdmin ? adminCode.trim() : undefined // Pass admin code if registering as admin
       );
       navigation.navigate('EmailVerification', { email: email.trim(), password });
@@ -272,6 +281,16 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
               onSelect={handleChapterChange}
               error={validationErrors.chapter}
               disabled={loading || !selectedUniversity}
+            />
+
+            <Dropdown
+              label="Class Year"
+              placeholder="Select your class year"
+              options={classYearOptions}
+              value={selectedClassYear}
+              onSelect={setSelectedClassYear}
+              error={validationErrors.classYear}
+              disabled={loading}
             />
 
             {/* Admin Registration Section */}

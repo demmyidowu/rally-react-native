@@ -65,11 +65,13 @@ export const createEvent = createAsyncThunk(
       endTime,
       assignedDDs,
       createdBy,
+      chapterId,
       allowAll,
       allowNonGreek,
       allowedOrganizationIds,
     }: CreateEventRequest & {
       createdBy: string;
+      chapterId?: string;
       location?: string;
       allowAll?: boolean;
       allowNonGreek?: boolean;
@@ -78,10 +80,10 @@ export const createEvent = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const eventData: Omit<EventDocument, 'id'> = {
+      // Build event data, excluding undefined fields (Firestore doesn't accept undefined)
+      const eventData: Record<string, any> = {
         name,
-        description,
-        location,
+        chapterId: chapterId || '',
         startTime: Timestamp.fromDate(startTime),
         endTime: Timestamp.fromDate(endTime || new Date()),
         status: EventStatus.SCHEDULED,
@@ -95,11 +97,15 @@ export const createEvent = createAsyncThunk(
         allowedOrganizationIds: allowedOrganizationIds || [],
       };
 
+      // Only add optional fields if they have values
+      if (description) eventData.description = description;
+      if (location) eventData.location = location;
+
       const docRef = await addDoc(collection(db, 'events'), eventData);
-      const newEvent = convertEventDocToEvent(docRef.id, { ...eventData, id: docRef.id });
+      const newEvent = convertEventDocToEvent(docRef.id, { ...eventData, id: docRef.id } as EventDocument);
       return newEvent;
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || 'Failed to create event');
     }
   }
 );
@@ -186,6 +192,47 @@ export const endEvent = createAsyncThunk(
       const eventRef = doc(db, 'events', eventId);
       await updateDoc(eventRef, {
         status: EventStatus.COMPLETED,
+        updatedAt: Timestamp.now(),
+      });
+
+      const updatedDoc = await getDoc(eventRef);
+      return convertEventDocToEvent(eventId, updatedDoc.data() as EventDocument);
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Activate event (set status from scheduled to active)
+// Ends any other active event first (only one active at a time)
+export const activateEvent = createAsyncThunk(
+  'events/activateEvent',
+  async ({ eventId, chapterId }: { eventId: string; chapterId?: string }, { rejectWithValue }) => {
+    try {
+      // First, check for any other active events in this chapter and end them
+      if (chapterId) {
+        const activeEventsQuery = query(
+          collection(db, 'events'),
+          where('chapterId', '==', chapterId),
+          where('status', '==', EventStatus.ACTIVE)
+        );
+        const activeEventsSnapshot = await getDocs(activeEventsQuery);
+
+        // End all other active events
+        for (const activeEventDoc of activeEventsSnapshot.docs) {
+          if (activeEventDoc.id !== eventId) {
+            await updateDoc(doc(db, 'events', activeEventDoc.id), {
+              status: EventStatus.COMPLETED,
+              updatedAt: Timestamp.now(),
+            });
+          }
+        }
+      }
+
+      // Now activate the new event
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, {
+        status: EventStatus.ACTIVE,
         updatedAt: Timestamp.now(),
       });
 
@@ -364,6 +411,16 @@ const eventsSlice = createSlice({
       if (state.activeEvent?.id === action.payload.id) {
         state.activeEvent = action.payload;
       }
+    });
+
+    // Activate event
+    builder.addCase(activateEvent.fulfilled, (state, action) => {
+      const index = state.events.findIndex((e) => e.id === action.payload.id);
+      if (index !== -1) {
+        state.events[index] = action.payload;
+      }
+      // Set as active event when activated
+      state.activeEvent = action.payload;
     });
   },
 });

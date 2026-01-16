@@ -101,7 +101,7 @@ export type AuthStateCallback = (state: AuthState, user: User | null) => void;
  * CRITICAL: Enforces @ksu.edu email domain and strong password requirements
  */
 export async function signUp(userData: SignUpData): Promise<AuthResult> {
-  const { email, password, name, phoneNumber, chapterId, classYear } = userData;
+  const { email, password, name, phoneNumber, chapterId, classYear, adminCode } = userData;
 
   try {
     // Validate KSU email
@@ -137,26 +137,36 @@ export async function signUp(userData: SignUpData): Promise<AuthResult> {
     // Send verification email
     await sendEmailVerification(userCredential.user);
 
+    // Determine role based on admin code
+    // If adminCode is provided and was validated on the frontend, set role to ADMIN
+    const isAdmin = !!adminCode && adminCode.trim().length > 0;
+    const userRole = isAdmin ? UserRole.ADMIN : UserRole.MEMBER;
+
     // Create Firestore user document with server timestamps
-    const userDoc = {
+    const userDoc: Record<string, any> = {
       id: userCredential.user.uid,
       name: name.trim(),
       email: email.toLowerCase(),
       phoneNumber: formattedPhone,
       chapterId: chapterId || '',
-      role: UserRole.MEMBER, // Default role
+      role: userRole,
       classYear: classYear,
       isEmailVerified: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
 
+    // Mark as self-registered admin if applicable
+    if (isAdmin) {
+      userDoc.selfRegisteredAdmin = true;
+    }
+
     await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
 
     // Fetch created user to get actual timestamps
     const createdUser = await loadUser(userCredential.user.uid);
 
-    console.log('✅ User signed up successfully:', createdUser.email);
+    console.log('✅ User signed up successfully:', createdUser.email, 'Role:', userRole);
 
     return {
       userId: userCredential.user.uid,
@@ -200,6 +210,10 @@ export async function signIn(email: string, password: string): Promise<AuthResul
 
     // Reload to get latest email verification status
     await userCredential.user.reload();
+
+    // Force refresh the ID token to update claims (including email_verified)
+    // This is critical for Firestore security rules that check email_verified
+    await userCredential.user.getIdToken(true);
 
     // Check email verification
     if (!userCredential.user.emailVerified) {
@@ -311,13 +325,16 @@ export async function checkEmailVerification(): Promise<boolean> {
     await firebaseUser.reload();
 
     if (firebaseUser.emailVerified) {
-      // Update Firestore
-      const user = await loadUser(firebaseUser.uid);
-      if (!user.isEmailVerified) {
-        await updateDoc(doc(db, 'users', user.id), {
+      // Update Firestore to mark email as verified
+      try {
+        await updateDoc(doc(db, 'users', firebaseUser.uid), {
           isEmailVerified: true,
           updatedAt: Timestamp.now(),
         });
+        console.log('✅ Updated Firestore: isEmailVerified = true');
+      } catch (updateError: any) {
+        // Log the error but don't fail - the important thing is Firebase Auth knows they're verified
+        console.warn('Could not update Firestore isEmailVerified:', updateError.message);
       }
       return true;
     }
@@ -381,8 +398,27 @@ export function onAuthStateChange(callback: AuthStateCallback): () => void {
       // Reload to get latest verification status
       await firebaseUser.reload();
 
-      // Load user data
-      const user = await loadUser(firebaseUser.uid);
+      // Try to load user data from Firestore
+      let user: User;
+      try {
+        user = await loadUser(firebaseUser.uid);
+      } catch (loadError) {
+        // User document might not exist yet (during signup flow)
+        // Create a temporary user object from Firebase Auth data
+        console.log('User document not found, using Firebase Auth data for now');
+        user = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || '',
+          email: firebaseUser.email || '',
+          phoneNumber: '',
+          chapterId: '',
+          role: UserRole.MEMBER,
+          classYear: new Date().getFullYear(),
+          isEmailVerified: firebaseUser.emailVerified,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        };
+      }
 
       if (!firebaseUser.emailVerified) {
         callback(AuthState.EMAIL_NOT_VERIFIED, user);

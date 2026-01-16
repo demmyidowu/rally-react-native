@@ -28,6 +28,7 @@ import {
 import { resendVerificationEmail } from '../../services/authService';
 import { Button } from '../../components';
 import { colors, spacing, typography } from '../../components/theme';
+import { auth } from '../../config/firebase';
 
 type Props = AuthScreenProps<'EmailVerification'>;
 
@@ -40,6 +41,9 @@ const EmailVerificationScreen: React.FC<Props> = ({ navigation: _navigation }) =
   const [resendLoading, setResendLoading] = useState(false);
   const [lastResent, setLastResent] = useState<Date | null>(null);
 
+  // Get email from Redux user OR fallback to Firebase Auth (handles case where Firestore doc doesn't exist yet)
+  const userEmail = user?.email || auth.currentUser?.email || 'your email';
+
   useEffect(() => {
     // If email is verified, navigate to main app
     if (isEmailVerified) {
@@ -50,7 +54,15 @@ const EmailVerificationScreen: React.FC<Props> = ({ navigation: _navigation }) =
   const handleCheckVerification = async () => {
     try {
       const result = await dispatch(checkEmailVerification()).unwrap();
-      if (!result) {
+      if (result) {
+        // Email verified! Sign out and prompt to login
+        await dispatch(signOut()).unwrap();
+        Alert.alert(
+          'Email Verified! 🎉',
+          'Your email has been verified successfully. Please sign in to continue.',
+          [{ text: 'OK' }]
+        );
+      } else {
         Alert.alert(
           'Not Verified',
           'Your email has not been verified yet. Please check your inbox and click the verification link.'
@@ -109,7 +121,7 @@ const EmailVerificationScreen: React.FC<Props> = ({ navigation: _navigation }) =
         <Text style={styles.subtitle}>
           We've sent a verification link to:
         </Text>
-        <Text style={styles.email}>{user?.email || 'your email'}</Text>
+        <Text style={styles.email}>{userEmail}</Text>
 
         {/* Instructions */}
         <View style={styles.instructionsContainer}>

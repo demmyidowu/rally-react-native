@@ -68,7 +68,6 @@ export type AdminScreenRouteProp<T extends keyof AdminStackParamList> =
 
 export type DDStackParamList = {
   DDDashboard: undefined;
-  ActiveRides: undefined;
   RideDetails: {
     rideId: string;
   };
@@ -80,7 +79,8 @@ export type DDStackParamList = {
       address: string;
     };
   };
-  ToggleStatus: undefined;
+  CarSettings: undefined;
+  Profile: undefined;
 };
 
 export type DDScreenNavigationProp<T extends keyof DDStackParamList> =
@@ -102,6 +102,7 @@ export type RiderStackParamList = {
   };
   QueueStatus: undefined;
   JoinChapter: undefined;
+  Profile: undefined;
 };
 
 export type RiderScreenNavigationProp<T extends keyof RiderStackParamList> =

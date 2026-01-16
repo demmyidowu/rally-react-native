@@ -16,6 +16,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RiderScreenProps } from '../../navigation/types';
@@ -25,6 +26,7 @@ import {
   selectMyRide,
   selectQueuePosition,
   fetchMyRide,
+  cancelRide,
   selectLoading,
 } from '../../store/slices/ridesSlice';
 import { RideStatus } from '../../models/Ride';
@@ -67,10 +69,28 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
     navigation.navigate('RequestRide', { isEmergency: true });
   };
 
-  const handleViewRide = () => {
-    if (myRide) {
-      navigation.navigate('RideDetails', { rideId: myRide.id });
-    }
+  const handleCancelRide = () => {
+    if (!myRide) return;
+
+    Alert.alert(
+      'Cancel Ride',
+      'Are you sure you want to cancel this ride request?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(cancelRide(myRide.id)).unwrap();
+              Alert.alert('Cancelled', 'Your ride request has been cancelled.');
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to cancel ride');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -89,7 +109,7 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.greeting}>Welcome back,</Text>
             <Text style={styles.userName}>{user?.name || 'Rider'}</Text>
           </View>
-          <TouchableOpacity style={styles.profileButton}>
+          <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
                 {user?.name?.charAt(0).toUpperCase() || 'R'}
@@ -109,14 +129,15 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
             {queuePosition && queuePosition > 0 && myRide.status === RideStatus.QUEUED && (
               <QueuePosition
                 position={queuePosition}
-                totalInQueue={10}
+                totalInQueue={queuePosition - 1}
                 estimatedWaitTime={queuePosition * 15}
               />
             )}
 
             <RideCard
               ride={myRide}
-              onPress={handleViewRide}
+              showDD={!!myRide.ddId}
+              ddName={myRide.ddName}
             />
 
             {myRide.status === RideStatus.QUEUED && (
@@ -124,17 +145,18 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Button
                   title="Cancel Ride"
                   variant="secondary"
-                  onPress={() => { }}
+                  onPress={() => handleCancelRide()}
                 />
               </View>
             )}
+
           </Card>
         ) : (
           /* Request Ride Section */
           <Card style={styles.requestCard}>
             <Text style={styles.requestTitle}>Need a Ride?</Text>
             <Text style={styles.requestSubtitle}>
-              Request a safe ride from one of our designated drivers
+              Request a safe ride from a designated driver
             </Text>
             <Button
               title="Request a Ride"
@@ -164,11 +186,11 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => navigation.navigate('QueueStatus')}
+            onPress={() => navigation.navigate('Profile')}
           >
-            <Text style={styles.actionIcon}>⏳</Text>
-            <Text style={styles.actionTitle}>Queue Status</Text>
-            <Text style={styles.actionSubtitle}>Check wait time</Text>
+            <Text style={styles.actionIcon}>👤</Text>
+            <Text style={styles.actionTitle}>Profile</Text>
+            <Text style={styles.actionSubtitle}>View & edit</Text>
           </TouchableOpacity>
         </View>
 

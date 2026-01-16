@@ -7,10 +7,7 @@
 import {
   signUp,
   signIn,
-  signOut,
   sendPasswordReset,
-  checkEmailVerification,
-  resendVerificationEmail,
 } from '../authService';
 import { AuthError } from '../../types/errors';
 import { isKSUEmail, formatPhoneNumber, isValidPhoneNumber } from '../../models/User';
@@ -112,13 +109,27 @@ describe('Phone Number Validation', () => {
 describe('Sign Up Validation', () => {
   it('should reject non-KSU emails during sign up', async () => {
     await expect(
-      signUp('student@gmail.com', 'password123', 'John Doe', '5551234567')
+      signUp({
+        email: 'student@gmail.com',
+        password: 'Password123',
+        name: 'John Doe',
+        phoneNumber: '5551234567',
+        classYear: 4,
+        chapterId: 'test-chapter',
+      })
     ).rejects.toThrow(AuthError.EMAIL_NOT_KSU);
   });
 
   it('should reject invalid phone numbers during sign up', async () => {
     await expect(
-      signUp('student@ksu.edu', 'password123', 'John Doe', '555123')
+      signUp({
+        email: 'student@ksu.edu',
+        password: 'Password123',
+        name: 'John Doe',
+        phoneNumber: '555123',
+        classYear: 4,
+        chapterId: 'test-chapter',
+      })
     ).rejects.toThrow(AuthError.INVALID_PHONE_NUMBER);
   });
 });
@@ -174,11 +185,13 @@ describe('Firebase Auth Error Conversion', () => {
 
 // Integration tests (require Firebase emulator)
 describe.skip('Integration Tests (requires Firebase emulator)', () => {
-  const testUser = {
+  const testUserData = {
     email: 'test@ksu.edu',
-    password: 'testpassword123',
+    password: 'TestPassword123',
     name: 'Test User',
     phoneNumber: '5551234567',
+    classYear: 4,
+    chapterId: 'test-chapter',
   };
 
   beforeEach(async () => {
@@ -186,24 +199,19 @@ describe.skip('Integration Tests (requires Firebase emulator)', () => {
   });
 
   it('should sign up a new user', async () => {
-    const user = await signUp(
-      testUser.email,
-      testUser.password,
-      testUser.name,
-      testUser.phoneNumber
-    );
+    const result = await signUp(testUserData);
 
-    expect(user.email).toBe(testUser.email.toLowerCase());
-    expect(user.name).toBe(testUser.name);
-    expect(user.phoneNumber).toBe('+15551234567');
-    expect(user.role).toBe('member');
-    expect(user.isEmailVerified).toBe(false);
+    expect(result.user.email).toBe(testUserData.email.toLowerCase());
+    expect(result.user.name).toBe(testUserData.name);
+    expect(result.user.phoneNumber).toBe('+15551234567');
+    expect(result.user.role).toBe('member');
+    expect(result.user.isEmailVerified).toBe(false);
   });
 
   it('should prevent sign in with unverified email', async () => {
-    await signUp(testUser.email, testUser.password, testUser.name, testUser.phoneNumber);
+    await signUp(testUserData);
 
-    await expect(signIn(testUser.email, testUser.password)).rejects.toThrow(
+    await expect(signIn(testUserData.email, testUserData.password)).rejects.toThrow(
       AuthError.EMAIL_NOT_VERIFIED
     );
   });
@@ -214,13 +222,13 @@ describe.skip('Integration Tests (requires Firebase emulator)', () => {
   });
 
   it('should send password reset email', async () => {
-    await signUp(testUser.email, testUser.password, testUser.name, testUser.phoneNumber);
+    await signUp(testUserData);
 
-    await expect(sendPasswordReset(testUser.email)).resolves.not.toThrow();
+    await expect(sendPasswordReset(testUserData.email)).resolves.not.toThrow();
   });
 
   it('should resend verification email', async () => {
-    await signUp(testUser.email, testUser.password, testUser.name, testUser.phoneNumber);
+    await signUp(testUserData);
     // Sign in to get auth token (will fail but sets currentUser)
 
     await expect(resendVerificationEmail()).resolves.not.toThrow();

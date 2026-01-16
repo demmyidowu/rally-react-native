@@ -49,6 +49,17 @@ const EventManagementScreen: React.FC<Props> = ({ navigation }) => {
   const getFilteredEvents = (): Event[] => {
     if (!events) return [];
 
+    // Sort order: active > scheduled > completed
+    const statusOrder = { active: 0, scheduled: 1, completed: 2, cancelled: 3 };
+
+    const sortEvents = (eventList: Event[]): Event[] => {
+      return [...eventList].sort((a, b) => {
+        const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
+        const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
+        return orderA - orderB;
+      });
+    };
+
     switch (filter) {
       case 'active':
         return events.filter((e) => e.status === 'active');
@@ -57,7 +68,7 @@ const EventManagementScreen: React.FC<Props> = ({ navigation }) => {
       case 'completed':
         return events.filter((e) => e.status === 'completed');
       default:
-        return events;
+        return sortEvents(events);
     }
   };
 

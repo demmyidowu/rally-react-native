@@ -17,6 +17,9 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Linking,
+  Platform,
+  ActionSheetIOS,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DDScreenProps } from '../../navigation/types';
@@ -25,11 +28,19 @@ import { selectUser } from '../../store/slices/authSlice';
 import { selectActiveEvent } from '../../store/slices/eventsSlice';
 import {
   selectMyAssignment,
-  fetchMyDDAssignment,
+  fetchMyActiveEventAssignment,
   toggleDDActive,
   selectLoading,
 } from '../../store/slices/ddAssignmentsSlice';
-import { selectActiveRides } from '../../store/slices/ridesSlice';
+import {
+  selectActiveRides,
+  fetchActiveRides,
+  selectQueue,
+  markEnRoute,
+  markArrived,
+  completeRide,
+} from '../../store/slices/ridesSlice';
+import { completeRideForDD } from '../../store/slices/ddAssignmentsSlice';
 import { Card, RideCard, StatusBadge, CarInfoModal, CarInfo } from '../../components';
 import { colors, spacing, typography, borderRadius, shadows } from '../../components/theme';
 
@@ -41,6 +52,7 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const activeEvent = useAppSelector(selectActiveEvent);
   const myAssignment = useAppSelector(selectMyAssignment);
   const allActiveRides = useAppSelector(selectActiveRides);
+  const rideQueue = useAppSelector(selectQueue); // Pending rides waiting for assignment
   const loading = useAppSelector(selectLoading);
 
   // Filter rides to those assigned to this DD
@@ -51,23 +63,57 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [showCarModal, setShowCarModal] = useState(false);
 
   useEffect(() => {
-    if (user?.id && activeEvent?.id) {
-      dispatch(fetchMyDDAssignment({ eventId: activeEvent.id, ddId: user.id }));
+    // Fetch active event and DD's assignment in one call
+    if (user?.id) {
+      console.log('[DDDashboard] Fetching assignment for user:', {
+        id: user.id,
+        name: user.name,
+        chapterId: user.chapterId,
+      });
+      dispatch(fetchMyActiveEventAssignment({ ddId: user.id, chapterId: user.chapterId }));
+      // Also fetch all active rides so DDs can see the queue
+      dispatch(fetchActiveRides());
     }
-  }, [dispatch, user?.id, activeEvent?.id]);
+  }, [dispatch, user?.id, user?.chapterId]);
 
   useEffect(() => {
+    console.log('[DDDashboard] myAssignment updated:', myAssignment ? {
+      id: myAssignment.id,
+      ddId: myAssignment.ddId,
+      isActive: myAssignment.isActive,
+      eventId: myAssignment.eventId,
+    } : null);
+    console.log('[DDDashboard] activeEvent:', activeEvent ? {
+      id: activeEvent.id,
+      name: activeEvent.name,
+      status: activeEvent.status,
+    } : null);
     setIsActive(myAssignment?.isActive ?? false);
-  }, [myAssignment?.isActive]);
+  }, [myAssignment?.isActive, myAssignment, activeEvent]);
 
   const handleRefresh = () => {
-    if (user?.id && activeEvent?.id) {
-      dispatch(fetchMyDDAssignment({ eventId: activeEvent.id, ddId: user.id }));
+    if (user?.id) {
+      console.log('[DDDashboard] Refreshing - user.id:', user.id);
+      dispatch(fetchMyActiveEventAssignment({ ddId: user.id, chapterId: user.chapterId }));
+      dispatch(fetchActiveRides());
     }
   };
 
   const handleToggleActive = (value: boolean) => {
-    if (!myAssignment) return;
+    console.log('[DDDashboard] handleToggleActive called with value:', value);
+    console.log('[DDDashboard] myAssignment:', myAssignment);
+    console.log('[DDDashboard] activeEvent:', activeEvent);
+
+    if (!myAssignment) {
+      if (!activeEvent) {
+        console.log('[DDDashboard] No active event - showing "No Active Event" alert');
+        Alert.alert('No Active Event', 'There is no active event right now. Please wait for an admin to activate an event.');
+      } else {
+        console.log('[DDDashboard] Has active event but no assignment - showing "Not Assigned" alert');
+        Alert.alert('Not Assigned', 'You are not assigned to the current event. Please ask an admin to assign you.');
+      }
+      return;
+    }
 
     if (value) {
       // Going active - show car info modal
@@ -108,13 +154,106 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
     // Don't toggle - user cancelled
   };
 
-  const handleViewRide = (rideId: string) => {
-    navigation.navigate('RideDetails', { rideId });
+  // Get current ride (DD can only have 1 at a time)
+  const currentRide = assignedRides?.find(
+    (r) => r.status === 'assigned' || r.status === 'enroute' || r.status === 'arrived'
+  );
+
+  // Handle marking ride as "on the way"
+  const handleMarkEnRoute = async () => {
+    if (!currentRide) return;
+    try {
+      await dispatch(markEnRoute(currentRide.id)).unwrap();
+      Alert.alert('On the Way!', 'The rider has been notified you are on your way.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update ride status');
+    }
   };
 
-  const currentRide = assignedRides?.find(
-    (r) => r.status === 'assigned' || r.status === 'enroute'
-  );
+  // Handle marking DD arrived at pickup
+  const handleMarkArrived = async () => {
+    if (!currentRide) return;
+    try {
+      await dispatch(markArrived(currentRide.id)).unwrap();
+      Alert.alert('Arrived!', 'The rider has been notified you have arrived.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update ride status');
+    }
+  };
+
+  // Handle completing the ride
+  const handleCompleteRide = async () => {
+    if (!currentRide || !myAssignment) return;
+
+    Alert.alert(
+      'Complete Ride',
+      'Are you sure you want to mark this ride as complete?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Complete',
+          onPress: async () => {
+            try {
+              await dispatch(completeRide(currentRide.id)).unwrap();
+              await dispatch(completeRideForDD({
+                assignmentId: myAssignment.id,
+                rideId: currentRide.id,
+              })).unwrap();
+              Alert.alert('Success', 'Ride completed!');
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to complete ride');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle opening directions to pickup location
+  const handleGetDirections = () => {
+    if (!currentRide?.pickupAddress && !currentRide?.pickupLocation) return;
+
+    const lat = currentRide.pickupLocation?.latitude;
+    const lng = currentRide.pickupLocation?.longitude;
+    const address = currentRide.pickupAddress;
+
+    // Build URLs for different map apps
+    const encodedAddress = address ? encodeURIComponent(address) : '';
+    const googleMapsUrl = lat && lng
+      ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
+    const appleMapsUrl = lat && lng
+      ? `http://maps.apple.com/?daddr=${lat},${lng}`
+      : `http://maps.apple.com/?daddr=${encodedAddress}`;
+    const wazeUrl = lat && lng
+      ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
+      : `https://waze.com/ul?q=${encodedAddress}&navigate=yes`;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Apple Maps', 'Google Maps', 'Waze'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) Linking.openURL(appleMapsUrl);
+          else if (buttonIndex === 2) Linking.openURL(googleMapsUrl);
+          else if (buttonIndex === 3) Linking.openURL(wazeUrl);
+        }
+      );
+    } else {
+      // Android - use Alert as action sheet
+      Alert.alert(
+        'Get Directions',
+        'Open directions in:',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Google Maps', onPress: () => Linking.openURL(googleMapsUrl) },
+          { text: 'Waze', onPress: () => Linking.openURL(wazeUrl) },
+        ]
+      );
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -132,7 +271,7 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.greeting}>DD Dashboard</Text>
             <Text style={styles.userName}>{user?.name || 'Driver'}</Text>
           </View>
-          <TouchableOpacity style={styles.profileButton}>
+          <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
             <View style={[styles.avatar, isActive && styles.avatarActive]}>
               <Text style={styles.avatarText}>
                 {user?.name?.charAt(0).toUpperCase() || 'D'}
@@ -178,37 +317,65 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             <RideCard
               ride={currentRide}
-              onPress={() => handleViewRide(currentRide.id)}
               variant="dd"
               showActions
-              onMarkEnRoute={() => { }}
-              onComplete={() => { }}
+              onMarkEnRoute={handleMarkEnRoute}
+              onMarkArrived={handleMarkArrived}
+              onComplete={handleCompleteRide}
+              onGetDirections={handleGetDirections}
             />
           </Card>
         )}
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Just Car Settings now */}
         <View style={styles.quickActions}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => navigation.navigate('ActiveRides')}
+            onPress={() => navigation.navigate('CarSettings')}
           >
-            <Text style={styles.actionIcon}>🚗</Text>
-            <Text style={styles.actionTitle}>Active Rides</Text>
-            <Text style={styles.actionSubtitle}>
-              {assignedRides?.length || 0} rides
-            </Text>
+            <Text style={styles.actionIcon}>⚙️</Text>
+            <Text style={styles.actionTitle}>Car Settings</Text>
+            <Text style={styles.actionSubtitle}>Update car info</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => navigation.navigate('ToggleStatus')}
+            onPress={() => navigation.navigate('Profile')}
           >
-            <Text style={styles.actionIcon}>⚙️</Text>
-            <Text style={styles.actionTitle}>Settings</Text>
-            <Text style={styles.actionSubtitle}>Manage status</Text>
+            <Text style={styles.actionIcon}>👤</Text>
+            <Text style={styles.actionTitle}>Profile</Text>
+            <Text style={styles.actionSubtitle}>View & edit</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Ride Queue - Pending rides waiting for a DD */}
+        {rideQueue.length > 0 && (
+          <Card style={styles.queueCard}>
+            <View style={styles.queueHeader}>
+              <Text style={styles.sectionTitle}>🚨 Ride Queue</Text>
+              <View style={styles.queueBadge}>
+                <Text style={styles.queueBadgeText}>{rideQueue.length}</Text>
+              </View>
+            </View>
+            <Text style={styles.queueSubtitle}>
+              {isActive ? 'Rides waiting to be assigned' : 'Go active to receive rides'}
+            </Text>
+            {rideQueue.slice(0, 3).map((ride) => (
+              <RideCard
+                key={ride.id}
+                ride={ride}
+                riderName={ride.riderName}
+                variant="dd"
+                style={styles.queueRideCard}
+              />
+            ))}
+            {rideQueue.length > 3 && (
+              <Text style={styles.queueMoreText}>
+                +{rideQueue.length - 3} more rides in queue
+              </Text>
+            )}
+          </Card>
+        )}
 
         {/* Stats */}
         {myAssignment && (
@@ -420,6 +587,45 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.gray[600],
     marginBottom: spacing.sm,
+  },
+  queueCard: {
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
+  },
+  queueHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  queueBadge: {
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  queueBadgeText: {
+    ...typography.caption,
+    color: colors.white,
+    fontWeight: '700',
+  },
+  queueSubtitle: {
+    ...typography.caption,
+    color: colors.gray[500],
+    marginBottom: spacing.md,
+  },
+  queueRideCard: {
+    marginBottom: spacing.sm,
+  },
+  queueMoreText: {
+    ...typography.caption,
+    color: colors.primary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });
 

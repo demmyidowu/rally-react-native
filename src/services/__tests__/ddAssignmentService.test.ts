@@ -10,13 +10,6 @@
 import {
   calculateWaitTime,
   calculateWaitTimes,
-  findBestDD,
-  assignRide,
-  checkInactiveToggles,
-  checkProlongedInactivity,
-  monitorDDActivity,
-  toggleDDStatus,
-  getDDStats,
 } from '../ddAssignmentService';
 import { RideStatus } from '../../models/Ride';
 import { EventStatus } from '../../models/Event';
@@ -59,7 +52,7 @@ describe('DDAssignmentService - Wait Time Calculation', () => {
   });
 
   it('calculates 0 seconds wait for DD with no rides assigned to them', async () => {
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd2', // Different DD
@@ -72,7 +65,7 @@ describe('DDAssignmentService - Wait Time Calculation', () => {
   });
 
   it('calculates 900 seconds (15 min) wait for DD with 1 active ride', async () => {
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd1',
@@ -85,7 +78,7 @@ describe('DDAssignmentService - Wait Time Calculation', () => {
   });
 
   it('calculates 2700 seconds (45 min) wait for DD with 3 active rides', async () => {
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd1',
@@ -110,7 +103,7 @@ describe('DDAssignmentService - Wait Time Calculation', () => {
   });
 
   it('ignores completed rides in wait time calculation', async () => {
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd1',
@@ -129,7 +122,7 @@ describe('DDAssignmentService - Wait Time Calculation', () => {
   });
 
   it('ignores cancelled rides in wait time calculation', async () => {
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd1',
@@ -148,7 +141,7 @@ describe('DDAssignmentService - Wait Time Calculation', () => {
   });
 
   it('counts queued, assigned, and enroute rides', async () => {
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd1',
@@ -231,7 +224,7 @@ describe('DDAssignmentService - Best DD Selection Algorithm', () => {
       },
     ];
 
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd1',
@@ -421,7 +414,7 @@ describe('DDAssignmentService - Real-World Scenarios', () => {
       updatedAt: new Date(),
     };
 
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd1',
@@ -496,7 +489,7 @@ describe('DDAssignmentService - Edge Cases', () => {
       updatedAt: new Date(),
     };
 
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         // Missing ddId
@@ -552,7 +545,7 @@ describe('DDAssignmentService - Algorithm Correctness', () => {
       updatedAt: new Date(),
     };
 
-    const rides = [
+    const rides: any[] = [
       {
         id: 'ride1',
         ddId: 'dd1',

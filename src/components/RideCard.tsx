@@ -23,12 +23,14 @@ export interface RideCardProps {
   variant?: 'default' | 'dd' | 'admin';
   /** Show action buttons for DD */
   showActions?: boolean;
-  /** Callback for marking ride en route */
+  /** Callback for marking ride en route (on the way) */
   onMarkEnRoute?: () => void;
+  /** Callback for marking DD arrived at pickup */
+  onMarkArrived?: () => void;
   /** Callback for completing ride */
   onComplete?: () => void;
-  /** Callback for opening navigation */
-  onNavigate?: () => void;
+  /** Callback for opening navigation/directions */
+  onGetDirections?: () => void;
   /** Custom container style */
   style?: ViewStyle;
 }
@@ -43,13 +45,30 @@ export const RideCard: React.FC<RideCardProps> = ({
   variant: _variant = 'default',
   showActions = false,
   onMarkEnRoute,
+  onMarkArrived,
   onComplete,
-  onNavigate,
+  onGetDirections,
   style: _style,
 }) => {
-  const formatTimestamp = (timestamp: Timestamp | undefined): string => {
+  const formatTimestamp = (timestamp: Timestamp | Date | any): string => {
     if (!timestamp) return 'N/A';
-    const date = timestamp.toDate();
+
+    // Handle Firestore Timestamp
+    let date: Date;
+    if (typeof timestamp?.toDate === 'function') {
+      date = timestamp.toDate();
+    } else if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else {
+      // Try to create a date from whatever we have
+      date = new Date(timestamp);
+    }
+
+    // Validate the date
+    if (isNaN(date.getTime())) return 'N/A';
+
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -154,22 +173,32 @@ export const RideCard: React.FC<RideCardProps> = ({
 
       {showActions && (
         <View style={styles.actionsContainer}>
+          {/* On the Way button - when assigned */}
           {ride.status === 'assigned' && onMarkEnRoute && (
             <TouchableOpacity style={styles.actionButton} onPress={onMarkEnRoute}>
               <Ionicons name="navigate" size={18} color={colors.white} />
-              <Text style={styles.actionButtonText}>En Route</Text>
+              <Text style={styles.actionButtonText}>On the Way</Text>
             </TouchableOpacity>
           )}
-          {ride.status === 'enroute' && onComplete && (
+          {/* I'm Here button - when en route */}
+          {ride.status === 'enroute' && onMarkArrived && (
+            <TouchableOpacity style={[styles.actionButton, styles.arrivedButton]} onPress={onMarkArrived}>
+              <Ionicons name="location" size={18} color={colors.white} />
+              <Text style={styles.actionButtonText}>I'm Here</Text>
+            </TouchableOpacity>
+          )}
+          {/* Complete button - when arrived at pickup */}
+          {ride.status === 'arrived' && onComplete && (
             <TouchableOpacity style={[styles.actionButton, styles.completeButton]} onPress={onComplete}>
               <Ionicons name="checkmark-circle" size={18} color={colors.white} />
               <Text style={styles.actionButtonText}>Complete</Text>
             </TouchableOpacity>
           )}
-          {onNavigate && (
-            <TouchableOpacity style={[styles.actionButton, styles.navButton]} onPress={onNavigate}>
+          {/* Get Directions button - always show if handler provided */}
+          {onGetDirections && (
+            <TouchableOpacity style={[styles.actionButton, styles.navButton]} onPress={onGetDirections}>
               <Ionicons name="map" size={18} color={colors.white} />
-              <Text style={styles.actionButtonText}>Map</Text>
+              <Text style={styles.actionButtonText}>Get Directions</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -312,6 +341,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 8,
+  },
+  arrivedButton: {
+    backgroundColor: colors.info,
   },
   completeButton: {
     backgroundColor: colors.success,

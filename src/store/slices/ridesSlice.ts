@@ -21,6 +21,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  arrayRemove,
 } from 'firebase/firestore';
 
 // State interface
@@ -57,13 +58,25 @@ const convertRideDocToRide = (id: string, doc: RideDocument): Ride => ({
 });
 
 // Helper: Calculate priority
-// Priority = (classYear × 10) + (waitMinutes × 0.5)
+// Same chapter: (classYear × 10) + (waitMinutes × 0.5)
+// Different chapter: (waitMinutes × 0.5) only
 // Emergency = 9999
-const calculatePriority = (classYear: number, requestedAt: Date, isEmergency: boolean): number => {
+const calculatePriority = (
+  classYear: number,
+  requestedAt: Date,
+  isEmergency: boolean,
+  isInHostChapter: boolean = true
+): number => {
   if (isEmergency) return 9999;
 
   const waitMinutes = Math.floor((Date.now() - requestedAt.getTime()) / 60000);
-  return classYear * 10 + waitMinutes * 0.5;
+
+  // Only add class year bonus if rider is in the same chapter as the event host
+  if (isInHostChapter) {
+    return classYear * 10 + waitMinutes * 0.5;
+  } else {
+    return waitMinutes * 0.5;
+  }
 };
 
 // Async thunks
@@ -77,6 +90,9 @@ export const requestRide = createAsyncThunk(
       riderName,
       riderPhone,
       classYear,
+      riderChapterId,
+      eventId,
+      eventChapterId,
       pickupLocation,
       pickupAddress,
       dropoffLocation,
@@ -87,33 +103,56 @@ export const requestRide = createAsyncThunk(
       riderName: string;
       riderPhone: string;
       classYear: number;
+      riderChapterId?: string;
+      eventId?: string;
+      eventChapterId?: string;
     },
-    { rejectWithValue }
+    { rejectWithValue, dispatch }
   ) => {
     try {
       const requestedAt = new Date();
-      const priority = calculatePriority(classYear, requestedAt, isEmergency);
 
-      const rideData: Omit<RideDocument, 'id'> = {
+      // Check if rider is in same chapter as event host
+      const isInHostChapter = !!(riderChapterId && eventChapterId && riderChapterId === eventChapterId);
+      const priority = calculatePriority(classYear, requestedAt, isEmergency, isInHostChapter);
+
+      // Build ride data, excluding undefined fields (Firestore doesn't accept undefined)
+      const rideData: Record<string, any> = {
         riderId,
         riderName,
         riderPhone,
         status: RideStatus.QUEUED,
         pickupLocation,
-        pickupAddress,
-        dropoffLocation,
-        dropoffAddress,
         isEmergency,
         priority,
         requestedAt: Timestamp.fromDate(requestedAt),
-        notes,
       };
 
+      // Add chapter and event info if available
+      if (riderChapterId) rideData.chapterId = riderChapterId;
+      if (eventId) rideData.eventId = eventId;
+
+      // Only add optional fields if they have values
+      if (pickupAddress) rideData.pickupAddress = pickupAddress;
+      if (dropoffLocation) rideData.dropoffLocation = dropoffLocation;
+      if (dropoffAddress) rideData.dropoffAddress = dropoffAddress;
+      if (notes) rideData.notes = notes;
+
       const docRef = await addDoc(collection(db, 'rides'), rideData);
-      const newRide = convertRideDocToRide(docRef.id, { ...rideData, id: docRef.id });
+      console.log('[RequestRide] Created ride with id:', docRef.id, 'eventId:', eventId);
+      const newRide = convertRideDocToRide(docRef.id, { ...rideData, id: docRef.id } as RideDocument);
+
+      // Trigger auto-assignment if there's an active event
+      if (eventId) {
+        console.log('[RequestRide] Triggering auto-assignment for eventId:', eventId);
+        dispatch(autoAssignNextRide({ eventId }));
+      } else {
+        console.log('[RequestRide] No eventId, skipping auto-assignment');
+      }
+
       return newRide;
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || 'Failed to request ride');
     }
   }
 );
@@ -125,7 +164,7 @@ export const fetchActiveRides = createAsyncThunk(
     try {
       const q = query(
         collection(db, 'rides'),
-        where('status', 'in', [RideStatus.QUEUED, RideStatus.ASSIGNED, RideStatus.ENROUTE]),
+        where('status', 'in', [RideStatus.QUEUED, RideStatus.ASSIGNED, RideStatus.ENROUTE, RideStatus.ARRIVED]),
         orderBy('priority', 'desc')
       );
 
@@ -149,7 +188,7 @@ export const fetchMyRide = createAsyncThunk(
       const q = query(
         collection(db, 'rides'),
         where('riderId', '==', userId),
-        where('status', 'in', [RideStatus.QUEUED, RideStatus.ASSIGNED, RideStatus.ENROUTE]),
+        where('status', 'in', [RideStatus.QUEUED, RideStatus.ASSIGNED, RideStatus.ENROUTE, RideStatus.ARRIVED]),
         orderBy('requestedAt', 'desc')
       );
 
@@ -222,15 +261,34 @@ export const assignRide = createAsyncThunk(
   }
 );
 
-// Mark ride as en route
+// Mark ride as en route (DD is on the way)
 export const markEnRoute = createAsyncThunk(
   'rides/markEnRoute',
   async (rideId: string, { rejectWithValue }) => {
     try {
       const rideRef = doc(db, 'rides', rideId);
       await updateDoc(rideRef, {
-        status: 'en_route',
+        status: RideStatus.ENROUTE,
         enRouteAt: Timestamp.now(),
+      });
+
+      const updatedDoc = await getDoc(rideRef);
+      return convertRideDocToRide(rideId, updatedDoc.data() as RideDocument);
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Mark ride as arrived (DD arrived at pickup)
+export const markArrived = createAsyncThunk(
+  'rides/markArrived',
+  async (rideId: string, { rejectWithValue }) => {
+    try {
+      const rideRef = doc(db, 'rides', rideId);
+      await updateDoc(rideRef, {
+        status: RideStatus.ARRIVED,
+        arrivedAt: Timestamp.now(),
       });
 
       const updatedDoc = await getDoc(rideRef);
@@ -247,10 +305,33 @@ export const completeRide = createAsyncThunk(
   async (rideId: string, { rejectWithValue }) => {
     try {
       const rideRef = doc(db, 'rides', rideId);
+
+      // Get the ride to find the ddId and eventId for cleanup
+      const rideDoc = await getDoc(rideRef);
+      const rideData = rideDoc.data();
+
       await updateDoc(rideRef, {
         status: 'completed',
         completedAt: Timestamp.now(),
       });
+
+      // Clean up DD's currentRides array (for data hygiene)
+      if (rideData?.ddId && rideData?.eventId) {
+        const ddAssignmentQuery = query(
+          collection(db, 'ddAssignments'),
+          where('eventId', '==', rideData.eventId),
+          where('ddId', '==', rideData.ddId)
+        );
+        const ddAssignmentSnap = await getDocs(ddAssignmentQuery);
+        if (!ddAssignmentSnap.empty) {
+          const ddAssignmentRef = ddAssignmentSnap.docs[0].ref;
+          await updateDoc(ddAssignmentRef, {
+            currentRides: arrayRemove(rideId),
+            updatedAt: Timestamp.now(),
+          });
+          console.log('[CompleteRide] Removed ride from DD currentRides array');
+        }
+      }
 
       const updatedDoc = await getDoc(rideRef);
       return convertRideDocToRide(rideId, updatedDoc.data() as RideDocument);
@@ -266,14 +347,228 @@ export const cancelRide = createAsyncThunk(
   async (rideId: string, { rejectWithValue }) => {
     try {
       const rideRef = doc(db, 'rides', rideId);
+
+      // Get the ride to find the ddId and eventId for cleanup
+      const rideDoc = await getDoc(rideRef);
+      const rideData = rideDoc.data();
+
       await updateDoc(rideRef, {
         status: 'cancelled',
         cancelledAt: Timestamp.now(),
       });
 
+      // Clean up DD's currentRides array if ride was assigned (for data hygiene)
+      if (rideData?.ddId && rideData?.eventId) {
+        const ddAssignmentQuery = query(
+          collection(db, 'ddAssignments'),
+          where('eventId', '==', rideData.eventId),
+          where('ddId', '==', rideData.ddId)
+        );
+        const ddAssignmentSnap = await getDocs(ddAssignmentQuery);
+        if (!ddAssignmentSnap.empty) {
+          const ddAssignmentRef = ddAssignmentSnap.docs[0].ref;
+          await updateDoc(ddAssignmentRef, {
+            currentRides: arrayRemove(rideId),
+            updatedAt: Timestamp.now(),
+          });
+          console.log('[CancelRide] Removed ride from DD currentRides array');
+        }
+      }
+
       const updatedDoc = await getDoc(rideRef);
       return convertRideDocToRide(rideId, updatedDoc.data() as RideDocument);
     } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Auto-assign next ride to best available DD
+// Rules:
+// - DD can only have 1 assigned ride at a time
+// - Priority swap logic:
+//   - ASSIGNED (not on the way yet): swap for ANY higher priority ride
+//   - ENROUTE (on the way): only swap for EMERGENCY rides
+//   - ARRIVED (at pickup): NO swap allowed
+export const autoAssignNextRide = createAsyncThunk(
+  'rides/autoAssignNextRide',
+  async ({ eventId }: { eventId: string }, { rejectWithValue }) => {
+    try {
+      console.log('[AutoAssign] Starting auto-assignment for eventId:', eventId);
+
+      // 1. Find all queued rides for this event, sorted by priority (highest first)
+      const ridesQuery = query(
+        collection(db, 'rides'),
+        where('eventId', '==', eventId),
+        where('status', '==', RideStatus.QUEUED),
+        orderBy('priority', 'desc')
+      );
+      const ridesSnapshot = await getDocs(ridesQuery);
+
+      if (ridesSnapshot.empty) {
+        console.log('[AutoAssign] No queued rides found');
+        return null;
+      }
+
+      const queuedRides = ridesSnapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })) as any[];
+      console.log('[AutoAssign] Found', queuedRides.length, 'queued rides');
+
+      // 2. Find all active DDs for this event
+      const ddsQuery = query(
+        collection(db, 'ddAssignments'),
+        where('eventId', '==', eventId),
+        where('isActive', '==', true)
+      );
+      const ddsSnapshot = await getDocs(ddsQuery);
+
+      if (ddsSnapshot.empty) {
+        console.log('[AutoAssign] No active DDs found');
+        return null;
+      }
+
+      const activeDDs = ddsSnapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })) as any[];
+      console.log('[AutoAssign] Found', activeDDs.length, 'active DDs');
+
+      const rideToAssign = queuedRides[0];
+
+      // 3. Find truly available DD by checking actual ride statuses (not stale currentRides array)
+      // This approach queries Firestore for actual active rides, same as Cloud Function
+      let availableDD = null;
+      for (const dd of activeDDs) {
+        const activeRidesQuery = query(
+          collection(db, 'rides'),
+          where('eventId', '==', eventId),
+          where('ddId', '==', dd.ddId),
+          where('status', 'in', [RideStatus.ASSIGNED, RideStatus.ENROUTE, RideStatus.ARRIVED])
+        );
+        const activeRidesSnap = await getDocs(activeRidesQuery);
+
+        if (activeRidesSnap.empty) {
+          availableDD = dd;
+          console.log('[AutoAssign] Found available DD (no active rides):', dd.ddName);
+          break;
+        } else {
+          console.log('[AutoAssign] DD', dd.ddName, 'has', activeRidesSnap.size, 'active ride(s)');
+        }
+      }
+
+      if (availableDD) {
+        // Simple case: DD is free, assign the ride
+        console.log('[AutoAssign] Assigning to available DD:', availableDD.ddName);
+
+        const rideRef = doc(db, 'rides', rideToAssign.id);
+        await updateDoc(rideRef, {
+          status: RideStatus.ASSIGNED,
+          ddId: availableDD.ddId,
+          ddName: availableDD.ddName,
+          assignedAt: Timestamp.now(),
+        });
+
+        const ddRef = doc(db, 'ddAssignments', availableDD.id);
+        await updateDoc(ddRef, {
+          currentRides: [rideToAssign.id],
+          updatedAt: Timestamp.now(),
+        });
+
+        console.log('[AutoAssign] Assigned ride', rideToAssign.id, 'to available DD', availableDD.ddName);
+
+        const updatedRideDoc = await getDoc(rideRef);
+        return convertRideDocToRide(rideToAssign.id, updatedRideDoc.data() as RideDocument);
+      }
+
+      // 4. No available DD - check if we can swap based on priority
+      console.log('[AutoAssign] No available DD, checking for priority swap...');
+
+      // Get actual active rides for all busy DDs (query Firestore, don't trust currentRides array)
+      for (const dd of activeDDs) {
+        // Query for DD's active rides
+        const ddActiveRidesQuery = query(
+          collection(db, 'rides'),
+          where('eventId', '==', eventId),
+          where('ddId', '==', dd.ddId),
+          where('status', 'in', [RideStatus.ASSIGNED, RideStatus.ENROUTE, RideStatus.ARRIVED])
+        );
+        const ddActiveRides = await getDocs(ddActiveRidesQuery);
+
+        // If DD has no active rides, they should have been caught above - skip
+        if (ddActiveRides.empty) continue;
+
+        const currentRideDoc = ddActiveRides.docs[0];
+        const currentRideId = currentRideDoc.id;
+        const currentRideRef = doc(db, 'rides', currentRideId);
+        const currentRideData = currentRideDoc.data();
+        const currentRideStatus = currentRideData.status;
+        const currentRidePriority = currentRideData.priority || 0;
+        const newRidePriority = rideToAssign.priority || 0;
+        const isNewRideEmergency = rideToAssign.isEmergency === true;
+
+        console.log('[AutoAssign] DD', dd.ddName, 'current ride status:', currentRideStatus,
+          'priority:', currentRidePriority, 'new ride priority:', newRidePriority);
+
+        // Check swap conditions based on current ride status
+        let canSwap = false;
+
+        if (currentRideStatus === RideStatus.ASSIGNED) {
+          // DD hasn't started yet - swap for ANY higher priority
+          canSwap = newRidePriority > currentRidePriority;
+          console.log('[AutoAssign] Status ASSIGNED, canSwap:', canSwap);
+        } else if (currentRideStatus === RideStatus.ENROUTE) {
+          // DD is on the way - only swap for EMERGENCY
+          canSwap = isNewRideEmergency;
+          console.log('[AutoAssign] Status ENROUTE, isEmergency:', isNewRideEmergency, 'canSwap:', canSwap);
+        } else if (currentRideStatus === RideStatus.ARRIVED) {
+          // DD is at pickup - NO swap allowed
+          canSwap = false;
+          console.log('[AutoAssign] Status ARRIVED, canSwap: false');
+        }
+
+        if (canSwap) {
+          console.log('[AutoAssign] Performing swap for DD:', dd.ddName);
+
+          // Put current ride back in queue
+          await updateDoc(currentRideRef, {
+            status: RideStatus.QUEUED,
+            ddId: null,
+            ddName: null,
+            assignedAt: null,
+          });
+
+          // Assign new ride to DD
+          const newRideRef = doc(db, 'rides', rideToAssign.id);
+          await updateDoc(newRideRef, {
+            status: RideStatus.ASSIGNED,
+            ddId: dd.ddId,
+            ddName: dd.ddName,
+            assignedAt: Timestamp.now(),
+          });
+
+          // Update DD's currentRides
+          const ddRef = doc(db, 'ddAssignments', dd.id);
+          await updateDoc(ddRef, {
+            currentRides: [rideToAssign.id],
+            updatedAt: Timestamp.now(),
+          });
+
+          console.log('[AutoAssign] Swapped! Old ride', currentRideId, 'back to queue, new ride', rideToAssign.id, 'assigned to', dd.ddName);
+
+          // TODO: Send notifications to DD and displaced rider
+
+          const updatedRideDoc = await getDoc(newRideRef);
+          return convertRideDocToRide(rideToAssign.id, updatedRideDoc.data() as RideDocument);
+        }
+      }
+
+      // No swap possible, ride stays in queue
+      console.log('[AutoAssign] No swap possible, ride stays in queue');
+      return null;
+    } catch (error: any) {
+      console.error('[AutoAssign] Error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -351,7 +646,7 @@ const ridesSlice = createSlice({
         state.loading = false;
         state.rides = action.payload;
         state.activeRides = action.payload.filter((r) =>
-          ['assigned', 'en_route'].includes(r.status)
+          [RideStatus.ASSIGNED, RideStatus.ENROUTE, RideStatus.ARRIVED].includes(r.status)
         );
         state.queue = action.payload
           .filter((r) => r.status === RideStatus.QUEUED)
@@ -417,6 +712,18 @@ const ridesSlice = createSlice({
       }
     });
 
+    // Mark arrived
+    builder.addCase(markArrived.fulfilled, (state, action) => {
+      const index = state.rides.findIndex((r) => r.id === action.payload.id);
+      if (index !== -1) {
+        state.rides[index] = action.payload;
+      }
+      const activeIndex = state.activeRides.findIndex((r) => r.id === action.payload.id);
+      if (activeIndex !== -1) {
+        state.activeRides[activeIndex] = action.payload;
+      }
+    });
+
     // Complete ride
     builder.addCase(completeRide.fulfilled, (state, action) => {
       state.rides = state.rides.filter((r) => r.id !== action.payload.id);
@@ -433,6 +740,27 @@ const ridesSlice = createSlice({
       state.activeRides = state.activeRides.filter((r) => r.id !== action.payload.id);
       if (state.myRide?.id === action.payload.id) {
         state.myRide = null;
+      }
+    });
+
+    // Auto-assign ride - update local state after Firestore is updated
+    builder.addCase(autoAssignNextRide.fulfilled, (state, action) => {
+      if (!action.payload) return; // No ride assigned
+
+      const assignedRide = action.payload;
+
+      // Update ride in rides array
+      const index = state.rides.findIndex((r) => r.id === assignedRide.id);
+      if (index !== -1) {
+        state.rides[index] = assignedRide;
+      }
+
+      // Move from queue to activeRides
+      state.queue = state.queue.filter((r) => r.id !== assignedRide.id);
+
+      // Add to activeRides if not already there
+      if (!state.activeRides.find(r => r.id === assignedRide.id)) {
+        state.activeRides.push(assignedRide);
       }
     });
   },

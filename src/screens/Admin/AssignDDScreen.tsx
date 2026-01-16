@@ -21,7 +21,7 @@ import { selectEvents, fetchAllEvents, selectLoading } from '../../store/slices/
 import { Event } from '../../models/Event';
 import { Header, Card, Button, EmptyState, LoadingSpinner, StatusBadge } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, addDoc, collection, query, where, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
 type Props = AdminScreenProps<'AssignDD'>;
@@ -54,17 +54,57 @@ const AssignDDScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
+    console.log('[AssignDD] Starting assignment with:', {
+      ddId: selectedDdId,
+      ddName: selectedDdName,
+      eventId: selectedEventId,
+    });
+
     setAssigning(true);
     try {
+      // Add DD to event's assignedDDs array
       const eventRef = doc(db, 'events', selectedEventId);
       await updateDoc(eventRef, {
         assignedDDs: arrayUnion(selectedDdId),
       });
+      console.log('[AssignDD] Added ddId to event.assignedDDs array');
+
+      // Check if ddAssignment already exists
+      const assignmentQuery = query(
+        collection(db, 'ddAssignments'),
+        where('eventId', '==', selectedEventId),
+        where('ddId', '==', selectedDdId)
+      );
+      const existingAssignment = await getDocs(assignmentQuery);
+      console.log('[AssignDD] Existing assignment check:', existingAssignment.empty ? 'none found' : 'already exists');
+
+      // Create ddAssignment document if it doesn't exist
+      if (existingAssignment.empty) {
+        // Fetch DD's phone number from user document
+        const ddUserDoc = await getDoc(doc(db, 'users', selectedDdId));
+        const ddPhone = ddUserDoc.data()?.phoneNumber || '';
+
+        const newAssignment = await addDoc(collection(db, 'ddAssignments'), {
+          eventId: selectedEventId,
+          ddId: selectedDdId,
+          ddName: selectedDdName,
+          ddPhone: ddPhone,
+          isActive: false,
+          currentRides: [],
+          totalRides: 0,
+          inactiveToggles: 0,
+          assignedAt: Timestamp.now(),
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+        console.log('[AssignDD] Created new ddAssignment with id:', newAssignment.id, 'ddId:', selectedDdId);
+      }
 
       Alert.alert('Success', `${selectedDdName} has been assigned to the event!`, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
+      console.error('[AssignDD] Error assigning DD:', error);
       Alert.alert('Error', 'Failed to assign DD to event');
     } finally {
       setAssigning(false);

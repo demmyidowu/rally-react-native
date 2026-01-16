@@ -21,6 +21,7 @@ import { selectUser, fetchUserProfile } from './src/store/slices/authSlice';
 
 // Navigation
 import { AppNavigator } from './src/navigation';
+import { navigationRef } from './src/navigation/navigationUtils';
 
 // Services
 import {
@@ -60,8 +61,8 @@ function AppContent() {
       registerForPushNotifications(user.id);
     }
 
-    // Set up notification listeners
-    const cleanup = setupNotificationListeners();
+    // Set up notification listeners with navigation ref
+    const cleanup = setupNotificationListeners(navigationRef);
     return cleanup;
   }, [user?.id]);
 

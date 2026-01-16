@@ -9,12 +9,12 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { DDStackParamList } from './types';
 
-// Placeholder screens - will be implemented by react-native-developer
+// DD Screens
 import DDDashboardScreen from '../screens/DD/DDDashboardScreen';
-import ActiveRidesScreen from '../screens/DD/ActiveRidesScreen';
 import RideDetailsScreen from '../screens/DD/RideDetailsScreen';
 import NavigationScreen from '../screens/DD/NavigationScreen';
-import ToggleStatusScreen from '../screens/DD/ToggleStatusScreen';
+import CarSettingsScreen from '../screens/DD/CarSettingsScreen';
+import ProfileScreen from '../screens/DD/ProfileScreen';
 
 const Stack = createStackNavigator<DDStackParamList>();
 
@@ -42,13 +42,6 @@ export const DDNavigator: React.FC = () => {
         }}
       />
       <Stack.Screen
-        name="ActiveRides"
-        component={ActiveRidesScreen}
-        options={{
-          title: 'Active Rides',
-        }}
-      />
-      <Stack.Screen
         name="RideDetails"
         component={RideDetailsScreen}
         options={{
@@ -65,11 +58,18 @@ export const DDNavigator: React.FC = () => {
         }}
       />
       <Stack.Screen
-        name="ToggleStatus"
-        component={ToggleStatusScreen}
+        name="CarSettings"
+        component={CarSettingsScreen}
         options={{
-          title: 'Toggle Status',
-          presentation: 'modal',
+          title: 'Car Settings',
+        }}
+      />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'Profile',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

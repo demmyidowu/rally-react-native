@@ -9,7 +9,6 @@ export {
     RiderDashboardScreen,
     RequestRideScreen,
     MyRidesScreen,
-    QueueStatusScreen,
     RideDetailsScreen,
     JoinChapterScreen,
 } from './Rider';
@@ -17,9 +16,7 @@ export {
 // Re-export DD screens (DDRideDetailsScreen is already renamed in DD/index.ts)
 export {
     DDDashboardScreen,
-    ActiveRidesScreen,
     DDRideDetailsScreen,
-    ToggleStatusScreen,
     NavigationScreen,
 } from './DD';
 

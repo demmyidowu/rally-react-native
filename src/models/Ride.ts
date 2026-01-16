@@ -7,6 +7,7 @@ export enum RideStatus {
   QUEUED = 'queued',
   ASSIGNED = 'assigned',
   ENROUTE = 'enroute',
+  ARRIVED = 'arrived',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
 }
@@ -83,6 +84,9 @@ export interface Ride {
   /** Timestamp when the DD marked themselves as en route */
   enrouteAt?: Timestamp;
 
+  /** Timestamp when the DD arrived at pickup location */
+  arrivedAt?: Timestamp;
+
   /** Timestamp when the ride was completed */
   completedAt?: Timestamp;
 
@@ -115,7 +119,9 @@ export const getRideStatusDisplayName = (status: RideStatus): string => {
     case RideStatus.ASSIGNED:
       return 'Assigned';
     case RideStatus.ENROUTE:
-      return 'En Route';
+      return 'On the Way';
+    case RideStatus.ARRIVED:
+      return 'Arrived';
     case RideStatus.COMPLETED:
       return 'Completed';
     case RideStatus.CANCELLED:
@@ -149,6 +155,7 @@ export interface RideDocument {
   requestedAt: Timestamp;
   assignedAt?: Timestamp;
   enRouteAt?: Timestamp;
+  arrivedAt?: Timestamp;
   completedAt?: Timestamp;
   cancelledAt?: Timestamp;
   cancellationReason?: string;

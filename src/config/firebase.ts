@@ -11,15 +11,14 @@
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import {
-  connectAuthEmulator,
   Auth,
   initializeAuth,
   getAuth,
 } from 'firebase/auth';
 // @ts-ignore - getReactNativePersistence exists in RN but not in web types
 import { getReactNativePersistence } from '@firebase/auth/dist/rn/index.js';
-import { getFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
-import { getFunctions, connectFunctionsEmulator, Functions } from 'firebase/functions';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFunctions, Functions } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Firebase configuration from GoogleService-Info.plist
@@ -57,35 +56,36 @@ export const db: Firestore = getFirestore(app);
 export const functions: Functions = getFunctions(app);
 
 // Configure emulators in development
-if (__DEV__) {
-  console.log('🔧 Configuring Firebase Emulators...');
+// TEMPORARILY DISABLED - using real Firebase for testing
+// if (__DEV__) {
+//   console.log('🔧 Configuring Firebase Emulators...');
 
-  // Only connect to emulators once
-  try {
-    // Firestore emulator (localhost:8080)
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    console.log('   ✅ Firestore: localhost:8080');
-  } catch (error) {
-    // Already connected
-  }
+//   // Only connect to emulators once
+//   try {
+//     // Firestore emulator (localhost:8080)
+//     connectFirestoreEmulator(db, 'localhost', 8080);
+//     console.log('   ✅ Firestore: localhost:8080');
+//   } catch (error) {
+//     // Already connected
+//   }
 
-  try {
-    // Auth emulator (localhost:9099)
-    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-    console.log('   ✅ Auth: localhost:9099');
-  } catch (error) {
-    // Already connected
-  }
+//   try {
+//     // Auth emulator (localhost:9099)
+//     connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+//     console.log('   ✅ Auth: localhost:9099');
+//   } catch (error) {
+//     // Already connected
+//   }
 
-  try {
-    // Functions emulator (localhost:5001)
-    connectFunctionsEmulator(functions, 'localhost', 5001);
-    console.log('   ✅ Functions: localhost:5001');
-  } catch (error) {
-    // Already connected
-  }
+//   try {
+//     // Functions emulator (localhost:5001)
+//     connectFunctionsEmulator(functions, 'localhost', 5001);
+//     console.log('   ✅ Functions: localhost:5001');
+//   } catch (error) {
+//     // Already connected
+//   }
 
-  console.log('✅ Firebase Emulators configured');
-}
+//   console.log('✅ Firebase Emulators configured');
+// }
 
 export default app;

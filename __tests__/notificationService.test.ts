@@ -8,7 +8,7 @@
 
 import notificationService from '../src/services/notificationService';
 import * as Notifications from 'expo-notifications';
-import { NotificationPermissionStatus, NotificationType } from '../src/types/notifications';
+import { NotificationType } from '../src/types/notifications';
 
 // Mock expo-notifications
 jest.mock('expo-notifications', () => ({
@@ -56,15 +56,16 @@ describe('NotificationService', () => {
     jest.clearAllMocks();
   });
 
-  describe('requestPermissions', () => {
-    it('should return GRANTED when permissions are already granted', async () => {
+  describe('requestNotificationPermissions', () => {
+    it('should return granted: true when permissions are already granted', async () => {
       (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
         status: 'granted',
       });
 
-      const status = await notificationService.requestPermissions();
+      const result = await notificationService.requestNotificationPermissions();
 
-      expect(status).toBe(NotificationPermissionStatus.GRANTED);
+      expect(result.granted).toBe(true);
+      expect(result.status).toBe('granted');
       expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
     });
 
@@ -76,20 +77,22 @@ describe('NotificationService', () => {
         status: 'granted',
       });
 
-      const status = await notificationService.requestPermissions();
+      const result = await notificationService.requestNotificationPermissions();
 
-      expect(status).toBe(NotificationPermissionStatus.GRANTED);
+      expect(result.granted).toBe(true);
+      expect(result.status).toBe('granted');
       expect(Notifications.requestPermissionsAsync).toHaveBeenCalled();
     });
 
-    it('should return DENIED when permissions are denied', async () => {
+    it('should return granted: false when permissions are denied', async () => {
       (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
         status: 'denied',
       });
 
-      const status = await notificationService.requestPermissions();
+      const result = await notificationService.requestNotificationPermissions();
 
-      expect(status).toBe(NotificationPermissionStatus.DENIED);
+      expect(result.granted).toBe(false);
+      expect(result.status).toBe('denied');
     });
 
     it('should handle errors gracefully', async () => {
@@ -97,19 +100,22 @@ describe('NotificationService', () => {
         new Error('Permission request failed')
       );
 
-      const status = await notificationService.requestPermissions();
+      const result = await notificationService.requestNotificationPermissions();
 
-      expect(status).toBe(NotificationPermissionStatus.DENIED);
+      expect(result.granted).toBe(false);
+      expect(result.status).toBe('denied');
     });
   });
 
   describe('registerForPushNotifications', () => {
+    const testUserId = 'test-user-id';
+
     it('should return null if permissions are denied', async () => {
       (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
         status: 'denied',
       });
 
-      const token = await notificationService.registerForPushNotifications();
+      const token = await notificationService.registerForPushNotifications(testUserId);
 
       expect(token).toBeNull();
     });
@@ -124,7 +130,7 @@ describe('NotificationService', () => {
         data: mockToken,
       });
 
-      const token = await notificationService.registerForPushNotifications();
+      const token = await notificationService.registerForPushNotifications(testUserId);
 
       expect(token).toBe(mockToken);
       expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalled();
@@ -138,7 +144,7 @@ describe('NotificationService', () => {
         new Error('Failed to get token')
       );
 
-      const token = await notificationService.registerForPushNotifications();
+      const token = await notificationService.registerForPushNotifications(testUserId);
 
       expect(token).toBeNull();
     });
@@ -171,7 +177,7 @@ describe('NotificationService', () => {
 
     it('should schedule notification with custom trigger', async () => {
       const mockId = 'notification-456';
-      const trigger = { seconds: 60 };
+      const trigger = { type: 'timeInterval' as const, seconds: 60, repeats: false };
 
       (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue(mockId);
 
@@ -210,11 +216,11 @@ describe('NotificationService', () => {
     });
   });
 
-  describe('cancelNotification', () => {
+  describe('cancelScheduledNotification', () => {
     it('should cancel specific notification', async () => {
       const notificationId = 'notification-123';
 
-      await notificationService.cancelNotification(notificationId);
+      await notificationService.cancelScheduledNotification(notificationId);
 
       expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
         notificationId
@@ -222,9 +228,9 @@ describe('NotificationService', () => {
     });
   });
 
-  describe('cancelAllNotifications', () => {
+  describe('cancelAllScheduledNotifications', () => {
     it('should cancel all scheduled notifications', async () => {
-      await notificationService.cancelAllNotifications();
+      await notificationService.cancelAllScheduledNotifications();
 
       expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
     });
@@ -277,15 +283,15 @@ describe('NotificationService', () => {
     });
   });
 
-  describe('getPermissionStatus', () => {
+  describe('getNotificationPermissionStatus', () => {
     it('should return current permission status', async () => {
       (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
         status: 'granted',
       });
 
-      const status = await notificationService.getPermissionStatus();
+      const status = await notificationService.getNotificationPermissionStatus();
 
-      expect(status).toBe(NotificationPermissionStatus.GRANTED);
+      expect(status).toBe('granted');
     });
   });
 
@@ -320,13 +326,14 @@ describe('NotificationService', () => {
   describe('cleanup', () => {
     it('should remove notification listeners', () => {
       // Mock subscription objects
-      const mockSubscription = { remove: jest.fn() };
+      const mockReceivedSubscription = { remove: jest.fn() };
+      const mockResponseSubscription = { remove: jest.fn() };
 
       (Notifications.addNotificationReceivedListener as jest.Mock).mockReturnValue(
-        mockSubscription
+        mockReceivedSubscription
       );
       (Notifications.addNotificationResponseReceivedListener as jest.Mock).mockReturnValue(
-        mockSubscription
+        mockResponseSubscription
       );
 
       // Initialize to create listeners
@@ -335,7 +342,9 @@ describe('NotificationService', () => {
       // Cleanup
       notificationService.cleanup();
 
-      expect(Notifications.removeNotificationSubscription).toHaveBeenCalledTimes(2);
+      // Service calls .remove() on each subscription
+      expect(mockReceivedSubscription.remove).toHaveBeenCalled();
+      expect(mockResponseSubscription.remove).toHaveBeenCalled();
     });
   });
 });

@@ -26,6 +26,7 @@ import { RiderScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { requestRide, selectLoading } from '../../store/slices/ridesSlice';
+import { selectActiveEvent, fetchActiveEvent } from '../../store/slices/eventsSlice';
 import { locationService } from '../../services/locationService';
 import { createGeoPoint } from '../../services/firestoreService';
 import { Button, Header, Card, AddressAutocomplete } from '../../components';
@@ -38,6 +39,7 @@ type LocationMode = 'auto' | 'manual';
 const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
+  const activeEvent = useAppSelector(selectActiveEvent);
   const loading = useAppSelector(selectLoading);
 
   const isEmergency = route.params?.isEmergency ?? false;
@@ -57,7 +59,16 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
 
   useEffect(() => {
     captureLocation();
-  }, []);
+    // Fetch active event for the rider's chapter so we can link the ride
+    if (user?.chapterId) {
+      console.log('[RequestRide] Fetching active event for chapterId:', user.chapterId);
+      dispatch(fetchActiveEvent(user.chapterId)).then((result) => {
+        console.log('[RequestRide] fetchActiveEvent result:', result.payload);
+      });
+    } else {
+      console.log('[RequestRide] No chapterId, skipping fetchActiveEvent');
+    }
+  }, [dispatch, user?.chapterId]);
 
   const captureLocation = async () => {
     setLocationStatus('capturing');
@@ -116,11 +127,22 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     try {
+      console.log('[RequestRide] Submitting ride request with:', {
+        riderId: user.id,
+        riderChapterId: user.chapterId,
+        activeEventId: activeEvent?.id,
+        activeEventChapterId: activeEvent?.chapterId,
+        hasActiveEvent: !!activeEvent,
+      });
+
       await dispatch(requestRide({
         riderId: user.id,
         riderName: user.name,
         riderPhone: user.phoneNumber || '',
         classYear: user.classYear || 1,
+        riderChapterId: user.chapterId,
+        eventId: activeEvent?.id,
+        eventChapterId: activeEvent?.chapterId,
         pickupLocation: createGeoPoint(
           currentLocation.latitude,
           currentLocation.longitude
