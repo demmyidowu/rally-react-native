@@ -10,11 +10,6 @@
 import {
   calculatePriority,
   isSameChapterRide,
-  calculatePriorityForRide,
-  getOverallQueuePosition,
-  getQueuePositions,
-  getEstimatedWaitTime,
-  getQueueStats,
 } from '../rideQueueService';
 import { RideStatus } from '../../models/Ride';
 import { EventStatus } from '../../models/Event';
@@ -176,7 +171,7 @@ describe('RideQueueService - Priority Calculation', () => {
 
     it('uses correct wait time weight (0.5)', () => {
       // Test by varying wait time only
-      const wait0 = calculatePriority(0, 0, false, true); // 0
+      // wait0 = calculatePriority(0, 0, false, true) = 0
       const wait10 = calculatePriority(0, 10, false, true); // 5
       const wait20 = calculatePriority(0, 20, false, true); // 10
 
@@ -245,7 +240,7 @@ describe('RideQueueService - Same Chapter Detection', () => {
       createdBy: 'admin1',
     };
 
-    expect(isSameChapterRide(ride, event)).toBe(true);
+    expect(isSameChapterRide(ride as any, event as any)).toBe(true);
   });
 
   it('detects cross-chapter ride when chapters differ', () => {
@@ -274,7 +269,7 @@ describe('RideQueueService - Same Chapter Detection', () => {
       createdBy: 'admin1',
     };
 
-    expect(isSameChapterRide(ride, event)).toBe(false);
+    expect(isSameChapterRide(ride as any, event as any)).toBe(false);
   });
 
   it('handles "ALL" allowed chapters correctly - same chapter', () => {
@@ -303,7 +298,7 @@ describe('RideQueueService - Same Chapter Detection', () => {
       createdBy: 'admin1',
     };
 
-    expect(isSameChapterRide(ride, event)).toBe(true);
+    expect(isSameChapterRide(ride as any, event as any)).toBe(true);
   });
 
   it('handles "ALL" allowed chapters correctly - cross-chapter', () => {
@@ -332,7 +327,7 @@ describe('RideQueueService - Same Chapter Detection', () => {
       createdBy: 'admin1',
     };
 
-    expect(isSameChapterRide(ride, event)).toBe(false);
+    expect(isSameChapterRide(ride as any, event as any)).toBe(false);
   });
 });
 

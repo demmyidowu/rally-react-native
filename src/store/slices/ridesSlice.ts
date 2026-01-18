@@ -58,24 +58,26 @@ const convertRideDocToRide = (id: string, doc: RideDocument): Ride => ({
 });
 
 // Helper: Calculate priority
-// Same chapter: (classYear × 10) + (waitMinutes × 0.5)
-// Different chapter: (waitMinutes × 0.5) only
+// Same chapter: (classYear × 10) + (waitMinutes × 0.5) + penalty
+// Different chapter: (waitMinutes × 0.5) + penalty
 // Emergency = 9999
 const calculatePriority = (
   classYear: number,
   requestedAt: Date,
   isEmergency: boolean,
-  isInHostChapter: boolean = true
+  isInHostChapter: boolean = true,
+  penalty: number = 0
 ): number => {
   if (isEmergency) return 9999;
 
   const waitMinutes = Math.floor((Date.now() - requestedAt.getTime()) / 60000);
 
   // Only add class year bonus if rider is in the same chapter as the event host
+  // Apply penalty (negative value reduces priority)
   if (isInHostChapter) {
-    return classYear * 10 + waitMinutes * 0.5;
+    return classYear * 10 + waitMinutes * 0.5 + penalty;
   } else {
-    return waitMinutes * 0.5;
+    return waitMinutes * 0.5 + penalty;
   }
 };
 
@@ -112,9 +114,22 @@ export const requestRide = createAsyncThunk(
     try {
       const requestedAt = new Date();
 
+      // Fetch user's penalty from previous late cancellation
+      let penalty = 0;
+      const userRef = doc(db, 'users', riderId);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        penalty = userDoc.data().nextRidePenalty || 0;
+      }
+
       // Check if rider is in same chapter as event host
       const isInHostChapter = !!(riderChapterId && eventChapterId && riderChapterId === eventChapterId);
-      const priority = calculatePriority(classYear, requestedAt, isEmergency, isInHostChapter);
+      const priority = calculatePriority(classYear, requestedAt, isEmergency, isInHostChapter, penalty);
+
+      // Log penalty application
+      if (penalty !== 0) {
+        console.log('[RequestRide] Applied penalty to priority:', penalty, 'Final priority:', priority);
+      }
 
       // Build ride data, excluding undefined fields (Firestore doesn't accept undefined)
       const rideData: Record<string, any> = {
@@ -141,6 +156,15 @@ export const requestRide = createAsyncThunk(
       const docRef = await addDoc(collection(db, 'rides'), rideData);
       console.log('[RequestRide] Created ride with id:', docRef.id, 'eventId:', eventId);
       const newRide = convertRideDocToRide(docRef.id, { ...rideData, id: docRef.id } as RideDocument);
+
+      // Clear penalty after applying it to this ride
+      if (penalty !== 0) {
+        await updateDoc(userRef, {
+          nextRidePenalty: 0,
+          updatedAt: Timestamp.now(),
+        });
+        console.log('[RequestRide] Cleared penalty for user:', riderId);
+      }
 
       // Trigger auto-assignment if there's an active event
       if (eventId) {
@@ -344,18 +368,42 @@ export const completeRide = createAsyncThunk(
 // Cancel ride
 export const cancelRide = createAsyncThunk(
   'rides/cancelRide',
-  async (rideId: string, { rejectWithValue }) => {
+  async (
+    { rideId, applyPenalty = false }: { rideId: string; applyPenalty?: boolean },
+    { rejectWithValue }
+  ) => {
     try {
       const rideRef = doc(db, 'rides', rideId);
 
-      // Get the ride to find the ddId and eventId for cleanup
+      // Get the ride to find the riderId, ddId and eventId for cleanup
       const rideDoc = await getDoc(rideRef);
       const rideData = rideDoc.data();
 
-      await updateDoc(rideRef, {
+      // Build cancellation data
+      const cancellationData: Record<string, any> = {
         status: 'cancelled',
         cancelledAt: Timestamp.now(),
-      });
+      };
+
+      // Set cancellation reason based on penalty
+      if (applyPenalty) {
+        cancellationData.cancellationReason = 'Late cancellation after DD arrived';
+      } else {
+        cancellationData.cancellationReason = 'Cancelled by rider';
+      }
+
+      await updateDoc(rideRef, cancellationData);
+
+      // Apply penalty to user's next ride if required
+      if (applyPenalty && rideData?.riderId) {
+        const { LATE_CANCEL_PENALTY } = await import('../../constants/penalties');
+        const userRef = doc(db, 'users', rideData.riderId);
+        await updateDoc(userRef, {
+          nextRidePenalty: LATE_CANCEL_PENALTY,
+          updatedAt: Timestamp.now(),
+        });
+        console.log('[CancelRide] Applied penalty to user:', rideData.riderId);
+      }
 
       // Clean up DD's currentRides array if ride was assigned (for data hygiene)
       if (rideData?.ddId && rideData?.eventId) {
@@ -574,6 +622,43 @@ export const autoAssignNextRide = createAsyncThunk(
   }
 );
 
+// Upgrade existing ride to emergency priority
+export const upgradeRideToEmergency = createAsyncThunk(
+  'rides/upgradeRideToEmergency',
+  async ({ rideId }: { rideId: string }, { rejectWithValue, dispatch }) => {
+    try {
+      const rideRef = doc(db, 'rides', rideId);
+      const rideDoc = await getDoc(rideRef);
+
+      if (!rideDoc.exists()) {
+        return rejectWithValue('Ride not found');
+      }
+
+      const rideData = rideDoc.data();
+
+      // Update ride to emergency status
+      await updateDoc(rideRef, {
+        isEmergency: true,
+        priority: 9999,
+      });
+
+      console.log('[UpgradeToEmergency] Upgraded ride', rideId, 'to emergency priority');
+
+      // Trigger swap logic if ride is still queued
+      if (rideData?.eventId && rideData?.status === RideStatus.QUEUED) {
+        console.log('[UpgradeToEmergency] Triggering auto-assignment for eventId:', rideData.eventId);
+        dispatch(autoAssignNextRide({ eventId: rideData.eventId }));
+      }
+
+      const updatedDoc = await getDoc(rideRef);
+      return convertRideDocToRide(rideId, updatedDoc.data() as RideDocument);
+    } catch (error: any) {
+      console.error('[UpgradeToEmergency] Error:', error);
+      return rejectWithValue(error.message || 'Failed to upgrade ride to emergency');
+    }
+  }
+);
+
 // Slice
 const ridesSlice = createSlice({
   name: 'rides',
@@ -761,6 +846,34 @@ const ridesSlice = createSlice({
       // Add to activeRides if not already there
       if (!state.activeRides.find(r => r.id === assignedRide.id)) {
         state.activeRides.push(assignedRide);
+      }
+    });
+
+    // Upgrade ride to emergency
+    builder.addCase(upgradeRideToEmergency.fulfilled, (state, action) => {
+      const updatedRide = action.payload;
+
+      // Update in all arrays
+      const rideIndex = state.rides.findIndex((r) => r.id === updatedRide.id);
+      if (rideIndex !== -1) {
+        state.rides[rideIndex] = updatedRide;
+      }
+
+      const queueIndex = state.queue.findIndex((r) => r.id === updatedRide.id);
+      if (queueIndex !== -1) {
+        state.queue[queueIndex] = updatedRide;
+        // Re-sort queue by priority
+        state.queue.sort((a, b) => b.priority - a.priority);
+      }
+
+      const activeIndex = state.activeRides.findIndex((r) => r.id === updatedRide.id);
+      if (activeIndex !== -1) {
+        state.activeRides[activeIndex] = updatedRide;
+      }
+
+      // Update myRide if it's the upgraded ride
+      if (state.myRide?.id === updatedRide.id) {
+        state.myRide = updatedRide;
       }
     });
   },

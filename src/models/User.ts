@@ -66,6 +66,13 @@ export interface User {
   /** Total number of rides completed by this DD */
   totalRidesCompleted?: number;
 
+  /**
+   * Priority penalty applied to next ride request (negative value)
+   * Applied when rider cancels a ride after DD has arrived
+   * Cleared after being applied to one ride request
+   */
+  nextRidePenalty?: number;
+
   /** Timestamp when the user was created */
   createdAt: Timestamp;
 

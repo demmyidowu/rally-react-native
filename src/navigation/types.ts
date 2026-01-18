@@ -54,6 +54,7 @@ export type AdminStackParamList = {
   };
   JoinRequests: undefined;
   TransferAdmin: undefined;
+  Alerts: undefined;
 };
 
 export type AdminScreenNavigationProp<T extends keyof AdminStackParamList> =

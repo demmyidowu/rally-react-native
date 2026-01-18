@@ -27,6 +27,7 @@ import {
   selectQueuePosition,
   fetchMyRide,
   cancelRide,
+  upgradeRideToEmergency,
   selectLoading,
 } from '../../store/slices/ridesSlice';
 import { RideStatus } from '../../models/Ride';
@@ -66,31 +67,86 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleEmergencyRide = () => {
-    navigation.navigate('RequestRide', { isEmergency: true });
+    // Check if user has an active ride that can be upgraded
+    if (myRide && myRide.status !== RideStatus.COMPLETED && myRide.status !== RideStatus.CANCELLED) {
+      // Already have an active ride - offer to upgrade it
+      Alert.alert(
+        'Upgrade to Emergency',
+        'This will upgrade your current ride to emergency priority. You will be moved to the front of the queue.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Upgrade',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await dispatch(upgradeRideToEmergency({ rideId: myRide.id })).unwrap();
+                Alert.alert('Emergency', 'Your ride has been upgraded to emergency priority.');
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to upgrade ride');
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // No active ride - create new emergency ride
+      navigation.navigate('RequestRide', { isEmergency: true });
+    }
   };
 
   const handleCancelRide = () => {
     if (!myRide) return;
 
-    Alert.alert(
-      'Cancel Ride',
-      'Are you sure you want to cancel this ride request?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await dispatch(cancelRide(myRide.id)).unwrap();
-              Alert.alert('Cancelled', 'Your ride request has been cancelled.');
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to cancel ride');
-            }
+    // Check if this is a late cancellation (DD has arrived)
+    const isLateCancel = myRide.status === RideStatus.ARRIVED;
+
+    if (isLateCancel) {
+      // Show warning about penalty
+      Alert.alert(
+        'Late Cancellation Warning',
+        'Your DD has already arrived. Cancelling now will apply a -5 priority penalty to your next ride request.\n\nAre you sure you want to cancel?',
+        [
+          { text: 'No, Keep Ride', style: 'cancel' },
+          {
+            text: 'Cancel Anyway',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await dispatch(cancelRide({ rideId: myRide.id, applyPenalty: true })).unwrap();
+                Alert.alert(
+                  'Ride Cancelled',
+                  'Your ride has been cancelled. A priority penalty will be applied to your next ride request.'
+                );
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to cancel ride');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } else {
+      // Standard cancellation without penalty
+      Alert.alert(
+        'Cancel Ride',
+        'Are you sure you want to cancel this ride request?',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await dispatch(cancelRide({ rideId: myRide.id, applyPenalty: false })).unwrap();
+                Alert.alert('Cancelled', 'Your ride request has been cancelled.');
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to cancel ride');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   return (
@@ -140,10 +196,11 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
               ddName={myRide.ddName}
             />
 
-            {myRide.status === RideStatus.QUEUED && (
+            {/* Show cancel button for all statuses except completed/cancelled */}
+            {myRide.status !== RideStatus.COMPLETED && myRide.status !== RideStatus.CANCELLED && (
               <View style={styles.cancelButton}>
                 <Button
-                  title="Cancel Ride"
+                  title={myRide.status === RideStatus.ARRIVED ? 'Cancel Ride (Penalty)' : 'Cancel Ride'}
                   variant="secondary"
                   onPress={() => handleCancelRide()}
                 />

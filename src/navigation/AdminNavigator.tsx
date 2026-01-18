@@ -21,6 +21,7 @@ import MemberDetailsScreen from '../screens/Admin/MemberDetailsScreen';
 import RideHistoryScreen from '../screens/Admin/RideHistoryScreen';
 import RideDetailsScreen from '../screens/Admin/RideDetailsScreen';
 import JoinRequestsScreen from '../screens/Admin/JoinRequestsScreen';
+import AlertsScreen from '../screens/Admin/AlertsScreen';
 
 const Stack = createStackNavigator<AdminStackParamList>();
 
@@ -118,6 +119,13 @@ export const AdminNavigator: React.FC = () => {
         component={JoinRequestsScreen}
         options={{
           title: 'Join Requests',
+        }}
+      />
+      <Stack.Screen
+        name="Alerts"
+        component={AlertsScreen}
+        options={{
+          title: 'Alerts',
         }}
       />
     </Stack.Navigator>

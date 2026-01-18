@@ -12,7 +12,6 @@ import {
   calculateWaitTimes,
 } from '../ddAssignmentService';
 import { RideStatus } from '../../models/Ride';
-import { EventStatus } from '../../models/Event';
 
 // Mock Firestore
 jest.mock('../../config/firebase', () => ({
@@ -167,17 +166,7 @@ describe('DDAssignmentService - Wait Time Calculation', () => {
 });
 
 describe('DDAssignmentService - Best DD Selection Algorithm', () => {
-  const mockEvent = {
-    id: 'event1',
-    name: 'Test Event',
-    chapterId: 'sae',
-    date: new Date(),
-    allowedChapterIds: ['sae'],
-    status: EventStatus.ACTIVE,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    createdBy: 'admin1',
-  };
+  // Event context: SAE chapter event with only SAE members allowed
 
   it('selects DD with 0 rides over DD with 1 ride', () => {
     const dd1WaitTime = 0; // 0 rides × 15 min = 0
@@ -309,51 +298,9 @@ describe('DDAssignmentService - Constants and Thresholds', () => {
 
 describe('DDAssignmentService - Real-World Scenarios', () => {
   it('distributes rides evenly across DDs over time', async () => {
-    // Scenario: 3 DDs, 6 rides come in sequentially
-    // Expected distribution: 2 rides per DD
-
-    const ddAssignments = [
-      {
-        id: 'dd1',
-        userId: 'dd1',
-        eventId: 'event1',
-        isActive: true,
-        inactiveToggles: 0,
-        totalRidesCompleted: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: 'dd2',
-        userId: 'dd2',
-        eventId: 'event1',
-        isActive: true,
-        inactiveToggles: 0,
-        totalRidesCompleted: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: 'dd3',
-        userId: 'dd3',
-        eventId: 'event1',
-        isActive: true,
-        inactiveToggles: 0,
-        totalRidesCompleted: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-
-    // Simulate 6 rides being assigned
-    const assignments = [
-      { dd: 'dd1', rides: 0 }, // First ride → dd1 (0 rides)
-      { dd: 'dd2', rides: 0 }, // Second ride → dd2 (0 rides)
-      { dd: 'dd3', rides: 0 }, // Third ride → dd3 (0 rides)
-      { dd: 'dd1', rides: 1 }, // Fourth ride → dd1 (1 ride)
-      { dd: 'dd2', rides: 1 }, // Fifth ride → dd2 (1 ride)
-      { dd: 'dd3', rides: 1 }, // Sixth ride → dd3 (1 ride)
-    ];
+    // Scenario: 3 DDs (dd1, dd2, dd3), 6 rides come in sequentially
+    // Assignment pattern: dd1, dd2, dd3, dd1, dd2, dd3
+    // Expected final distribution: 2 rides per DD
 
     // After 6 rides, each DD should have 2 rides
     const finalDistribution = { dd1: 2, dd2: 2, dd3: 2 };

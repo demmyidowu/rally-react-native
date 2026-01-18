@@ -43,6 +43,7 @@ import {
 import { completeRideForDD } from '../../store/slices/ddAssignmentsSlice';
 import { Card, RideCard, StatusBadge, CarInfoModal, CarInfo } from '../../components';
 import { colors, spacing, typography, borderRadius, shadows } from '../../components/theme';
+import { hasCompleteCarInfo, formatCarDescription } from '../../models/User';
 
 type Props = DDScreenProps<'DDDashboard'>;
 
@@ -116,8 +117,19 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     if (value) {
-      // Going active - show car info modal
-      setShowCarModal(true);
+      // Going active - check if user already has car info saved
+      if (user && hasCompleteCarInfo(user)) {
+        // Use saved car info directly, skip modal
+        console.log('[DDDashboard] Using saved car info:', formatCarDescription(user));
+        confirmToggle(true, {
+          color: user.carColor!,
+          make: user.carMake!,
+          model: user.carModel!,
+        });
+      } else {
+        // No saved car info - show modal to collect it
+        setShowCarModal(true);
+      }
     } else {
       // Going inactive - no modal needed
       confirmToggle(false);

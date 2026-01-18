@@ -4,7 +4,7 @@
  * View and manage chapter members.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdminScreenProps } from '../../navigation/types';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
+import { selectActiveEvent, fetchActiveEvent } from '../../store/slices/eventsSlice';
+import { selectAssignments, fetchDDAssignments } from '../../store/slices/ddAssignmentsSlice';
 import { Header, Card, EmptyState, LoadingSpinner, Input } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -38,21 +40,32 @@ interface Member {
 }
 
 const MemberManagementScreen: React.FC<Props> = ({ navigation }) => {
+  const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
+  const activeEvent = useAppSelector(selectActiveEvent);
+  const ddAssignments = useAppSelector(selectAssignments);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'admin' | 'member'>('all');
 
-  useEffect(() => {
-    fetchMembers();
-  }, [user?.chapterId]);
+  // Check if a member is assigned as DD to the active event
+  const isMemberAssignedAsDD = useCallback((memberId: string): boolean => {
+    return ddAssignments.some(assignment => assignment.ddId === memberId);
+  }, [ddAssignments]);
 
-  const fetchMembers = async () => {
+  const loadData = useCallback(async () => {
     if (!user?.chapterId) return;
 
     setLoading(true);
     try {
+      // Fetch active event and DD assignments
+      const eventResult = await dispatch(fetchActiveEvent(user.chapterId)).unwrap();
+      if (eventResult?.id) {
+        await dispatch(fetchDDAssignments(eventResult.id)).unwrap();
+      }
+
+      // Fetch members
       const q = query(
         collection(db, 'users'),
         where('chapterId', '==', user.chapterId)
@@ -64,10 +77,24 @@ const MemberManagementScreen: React.FC<Props> = ({ navigation }) => {
       })) as Member[];
       setMembers(memberList);
     } catch (error) {
-      console.error('Error fetching members:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
+  }, [dispatch, user?.chapterId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleAssignDD = (member: Member) => {
+    // Navigate to AssignDD screen - let user select event there
+    // AssignDD supports both active AND scheduled events
+    navigation.navigate('AssignDD', {
+      eventId: activeEvent?.id || '',
+      ddId: member.id,
+      ddName: member.name,
+    });
   };
 
   const handleToggleAdmin = async (member: Member) => {
@@ -83,7 +110,7 @@ const MemberManagementScreen: React.FC<Props> = ({ navigation }) => {
             try {
               await updateDoc(doc(db, 'users', member.id), { role: newRole });
               Alert.alert('Success', `${member.name} is now ${newRole === 'admin' ? 'an Admin' : 'a Member'}`);
-              fetchMembers();
+              loadData();
             } catch (error) {
               Alert.alert('Error', 'Failed to update role');
             }
@@ -112,7 +139,7 @@ const MemberManagementScreen: React.FC<Props> = ({ navigation }) => {
             try {
               await deleteDoc(doc(db, 'users', member.id));
               Alert.alert('Success', `${member.name} has been removed from the chapter`);
-              fetchMembers();
+              loadData();
             } catch (error) {
               console.error('Delete error:', error);
               Alert.alert('Error', 'Failed to remove member');
@@ -140,47 +167,65 @@ const MemberManagementScreen: React.FC<Props> = ({ navigation }) => {
       m.email?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const renderMember = ({ item }: { item: Member }) => (
-    <Card style={styles.memberCard}>
-      <View style={styles.memberHeader}>
-        <View style={styles.memberAvatar}>
-          <Text style={styles.memberAvatarText}>
-            {item.name?.charAt(0).toUpperCase() || 'M'}
-          </Text>
-        </View>
-        <View style={styles.memberInfo}>
-          <View style={styles.nameRow}>
-            <Text style={styles.memberName}>{item.name}</Text>
-            {item.role === 'admin' && (
-              <View style={styles.adminBadge}>
-                <Text style={styles.adminBadgeText}>Admin</Text>
-              </View>
-            )}
+  const renderMember = ({ item }: { item: Member }) => {
+    const isAssignedDD = isMemberAssignedAsDD(item.id);
+
+    return (
+      <Card style={styles.memberCard}>
+        <View style={styles.memberHeader}>
+          <View style={styles.memberAvatar}>
+            <Text style={styles.memberAvatarText}>
+              {item.name?.charAt(0).toUpperCase() || 'M'}
+            </Text>
           </View>
-          <Text style={styles.memberEmail}>{item.email}</Text>
-          <Text style={styles.memberYear}>{getClassYearText(item.classYear)}</Text>
+          <View style={styles.memberInfo}>
+            <View style={styles.nameRow}>
+              <Text style={styles.memberName}>{item.name}</Text>
+              {item.role === 'admin' && (
+                <View style={styles.adminBadge}>
+                  <Text style={styles.adminBadgeText}>Admin</Text>
+                </View>
+              )}
+              {isAssignedDD && (
+                <View style={styles.ddBadge}>
+                  <Text style={styles.ddBadgeText}>DD</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.memberEmail}>{item.email}</Text>
+            <Text style={styles.memberYear}>{getClassYearText(item.classYear)}</Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.memberActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, item.role === 'admin' && styles.removeAdminButton]}
-          onPress={() => handleToggleAdmin(item)}
-        >
-          <Text style={[styles.actionButtonText, item.role === 'admin' && styles.removeAdminText]}>
-            {item.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
-          </Text>
-        </TouchableOpacity>
-        {item.id !== user?.id && (
+        <View style={styles.memberActions}>
+          {/* Assign as DD button */}
+          {!isAssignedDD && (
+            <TouchableOpacity
+              style={styles.assignDDButton}
+              onPress={() => handleAssignDD(item)}
+            >
+              <Text style={styles.assignDDButtonText}>Assign as DD</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleDeleteMember(item)}
+            style={[styles.actionButton, item.role === 'admin' && styles.removeAdminButton]}
+            onPress={() => handleToggleAdmin(item)}
           >
-            <Text style={styles.deleteButtonText}>Delete</Text>
+            <Text style={[styles.actionButtonText, item.role === 'admin' && styles.removeAdminText]}>
+              {item.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+            </Text>
           </TouchableOpacity>
-        )}
-      </View>
-    </Card>
-  );
+          {item.id !== user?.id && (
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => handleDeleteMember(item)}
+            >
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Card>
+    );
+  };
 
   const filters: { key: 'all' | 'admin' | 'member'; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -239,7 +284,7 @@ const MemberManagementScreen: React.FC<Props> = ({ navigation }) => {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={fetchMembers} colors={[colors.primary]} />
+            <RefreshControl refreshing={loading} onRefresh={loadData} colors={[colors.primary]} />
           }
         />
       )}
@@ -340,6 +385,18 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
   },
+  ddBadge: {
+    backgroundColor: colors.success,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  ddBadgeText: {
+    ...typography.caption,
+    fontSize: 10,
+    color: colors.white,
+    fontWeight: '600',
+  },
   memberEmail: {
     ...typography.caption,
     color: colors.gray[500],
@@ -351,9 +408,24 @@ const styles = StyleSheet.create({
   },
   memberActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     borderTopWidth: 1,
     borderTopColor: colors.gray[100],
     paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
+  assignDDButton: {
+    flex: 1,
+    minWidth: 100,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    backgroundColor: colors.success,
+    borderRadius: borderRadius.md,
+  },
+  assignDDButtonText: {
+    ...typography.body,
+    color: colors.white,
+    fontWeight: '600',
   },
   actionButton: {
     flex: 1,
@@ -379,7 +451,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.errorLight,
     borderRadius: borderRadius.md,
-    marginLeft: spacing.sm,
   },
   deleteButtonText: {
     ...typography.body,

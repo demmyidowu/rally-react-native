@@ -177,7 +177,8 @@ describe('NotificationService', () => {
 
     it('should schedule notification with custom trigger', async () => {
       const mockId = 'notification-456';
-      const trigger = { type: 'timeInterval' as const, seconds: 60, repeats: false };
+      // Use type assertion for test mock trigger
+      const trigger = { seconds: 60 } as any;
 
       (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue(mockId);
 

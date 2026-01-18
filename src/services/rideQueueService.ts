@@ -109,13 +109,15 @@ const AVERAGE_RIDE_TIME_MINUTES = 15.0;
  * @param waitMinutes - How many minutes the rider has been waiting
  * @param isEmergency - Whether this is an emergency ride request
  * @param isSameChapter - Whether the rider is from the same chapter as the event's DDs
+ * @param penalty - Optional penalty from previous late cancellation (negative value)
  * @returns The calculated priority (higher = more priority)
  */
 export function calculatePriority(
   classYear: number,
   waitMinutes: number,
   isEmergency: boolean,
-  isSameChapter: boolean
+  isSameChapter: boolean,
+  penalty: number = 0
 ): number {
   // Emergency always highest priority
   if (isEmergency) {
@@ -123,15 +125,16 @@ export function calculatePriority(
   }
 
   // Cross-chapter: only wait time matters (DDs don't know other chapters' hierarchies)
+  // Apply penalty (negative value reduces priority)
   if (!isSameChapter) {
-    return waitMinutes * WAIT_TIME_WEIGHT;
+    return waitMinutes * WAIT_TIME_WEIGHT + penalty;
   }
 
-  // Same chapter: class year + wait time
+  // Same chapter: class year + wait time + penalty
   const classYearPriority = classYear * CLASS_YEAR_WEIGHT;
   const waitTimePriority = waitMinutes * WAIT_TIME_WEIGHT;
 
-  return classYearPriority + waitTimePriority;
+  return classYearPriority + waitTimePriority + penalty;
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   signUp,
   signIn,
   sendPasswordReset,
+  resendVerificationEmail,
 } from '../authService';
 import { AuthError } from '../../types/errors';
 import { isKSUEmail, formatPhoneNumber, isValidPhoneNumber } from '../../models/User';

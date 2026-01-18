@@ -1,10 +1,11 @@
 /**
  * DD Management Screen
  *
- * Manage designated drivers - view list, assign to events, see stats.
+ * Shows designated drivers assigned to the ACTIVE event only.
+ * Displays event-specific stats from ddAssignments collection.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,78 +15,62 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdminScreenProps } from '../../navigation/types';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
+import { selectActiveEvent, fetchActiveEvent } from '../../store/slices/eventsSlice';
+import { selectAssignments, fetchDDAssignments } from '../../store/slices/ddAssignmentsSlice';
+import { DDAssignment } from '../../models/DDAssignment';
 import { Header, Card, Button, EmptyState, LoadingSpinner, Input } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../config/firebase';
 
 type Props = AdminScreenProps<'DDManagement'>;
 
-interface DDUser {
-  id: string;
-  name: string;
-  email: string;
-  phoneNumber: string;
-  carDescription?: string;
-  totalRidesCompleted?: number;
-  isActive?: boolean;
-}
-
 const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
+  const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
-  const [ddList, setDDList] = useState<DDUser[]>([]);
+  const activeEvent = useAppSelector(selectActiveEvent);
+  const ddAssignments = useAppSelector(selectAssignments);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchDDs();
-  }, [user?.chapterId]);
-
-  const fetchDDs = async () => {
+  const loadData = useCallback(async () => {
     if (!user?.chapterId) return;
 
     setLoading(true);
     try {
-      const q = query(
-        collection(db, 'users'),
-        where('chapterId', '==', user.chapterId),
-        where('role', 'in', ['admin', 'member'])
-      );
-      const snapshot = await getDocs(q);
-      const dds = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as DDUser[];
-      setDDList(dds);
+      // First fetch active event for this chapter
+      const eventResult = await dispatch(fetchActiveEvent(user.chapterId)).unwrap();
+
+      // If there's an active event, fetch its DD assignments
+      if (eventResult?.id) {
+        await dispatch(fetchDDAssignments(eventResult.id)).unwrap();
+      }
     } catch (error) {
-      console.error('Error fetching DDs:', error);
+      console.error('Error loading DD data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatch, user?.chapterId]);
 
-  const filteredDDs = ddList.filter(dd =>
-    dd.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    dd.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const filteredDDs = ddAssignments.filter(dd =>
+    dd.ddName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAssignDD = (dd: DDUser) => {
-    navigation.navigate('AssignDD', { eventId: '', ddId: dd.id, ddName: dd.name });
-  };
-
-  const renderDD = ({ item }: { item: DDUser }) => (
+  const renderDD = ({ item }: { item: DDAssignment }) => (
     <Card style={styles.ddCard}>
       <View style={styles.ddHeader}>
         <View style={styles.ddAvatar}>
           <Text style={styles.ddAvatarText}>
-            {item.name?.charAt(0).toUpperCase() || 'D'}
+            {item.ddName?.charAt(0).toUpperCase() || 'D'}
           </Text>
         </View>
         <View style={styles.ddInfo}>
-          <Text style={styles.ddName}>{item.name}</Text>
-          <Text style={styles.ddEmail}>{item.email}</Text>
+          <Text style={styles.ddName}>{item.ddName}</Text>
+          <Text style={styles.ddPhone}>{item.ddPhone}</Text>
           {item.carDescription && (
             <Text style={styles.ddCar}>🚗 {item.carDescription}</Text>
           )}
@@ -93,8 +78,12 @@ const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
       </View>
       <View style={styles.ddStats}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{item.totalRidesCompleted || 0}</Text>
-          <Text style={styles.statLabel}>Total Rides</Text>
+          <Text style={styles.statValue}>{item.totalRides || 0}</Text>
+          <Text style={styles.statLabel}>Event Rides</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{item.currentRides?.length || 0}</Text>
+          <Text style={styles.statLabel}>Current</Text>
         </View>
         <View style={[
           styles.statusBadge,
@@ -108,26 +97,49 @@ const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
       </View>
-      <View style={styles.assignButton}>
-        <Button
-          title="Assign to Event"
-          variant="secondary"
-          onPress={() => handleAssignDD(item)}
-          fullWidth
-        />
-      </View>
     </Card>
   );
+
+  // No active event - show empty state with navigation to Event Management
+  if (!loading && !activeEvent) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Header title="DD Management" showBack onBack={() => navigation.goBack()} />
+        <View style={styles.emptyContainer}>
+          <EmptyState
+            icon="calendar-outline"
+            title="No Active Event"
+            message="There is no active event. Start an event first to manage designated drivers."
+          />
+          <View style={styles.navigationButton}>
+            <Button
+              title="Go to Event Management"
+              onPress={() => navigation.navigate('EventManagement')}
+              fullWidth
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Header title="DD Management" showBack onBack={() => navigation.goBack()} />
 
+      {/* Event Info */}
+      {activeEvent && (
+        <View style={styles.eventBanner}>
+          <Text style={styles.eventLabel}>Active Event</Text>
+          <Text style={styles.eventName}>{activeEvent.name}</Text>
+        </View>
+      )}
+
       {/* Search */}
       <View style={styles.searchContainer}>
         <Input
           label="Search"
-          placeholder="Search Member..."
+          placeholder="Search DD..."
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -139,8 +151,10 @@ const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
       ) : filteredDDs.length === 0 ? (
         <EmptyState
           icon="car-outline"
-          title="No DDs Found"
-          message={searchQuery ? "No matching DDs found." : "No designated drivers in this chapter."}
+          title="No DDs Assigned"
+          message={searchQuery
+            ? "No matching DDs found."
+            : "No designated drivers are assigned to this event. Assign DDs from the Members page."}
         />
       ) : (
         <FlatList
@@ -150,7 +164,7 @@ const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={fetchDDs} colors={[colors.primary]} />
+            <RefreshControl refreshing={loading} onRefresh={loadData} colors={[colors.primary]} />
           }
         />
       )}
@@ -162,6 +176,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  eventBanner: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  eventLabel: {
+    ...typography.caption,
+    color: colors.white,
+    opacity: 0.8,
+  },
+  eventName: {
+    ...typography.h3,
+    color: colors.white,
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
@@ -201,7 +229,7 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.gray[800],
   },
-  ddEmail: {
+  ddPhone: {
     ...typography.caption,
     color: colors.gray[500],
   },
@@ -214,7 +242,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.gray[100],
@@ -251,8 +278,13 @@ const styles = StyleSheet.create({
   inactiveText: {
     color: colors.gray[500],
   },
-  assignButton: {
-    marginTop: spacing.sm,
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  navigationButton: {
+    marginTop: spacing.xl,
   },
 });
 

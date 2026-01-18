@@ -31,6 +31,7 @@ type Props = AdminScreenProps<'CreateEvent'>;
 interface Organization {
   id: string;
   name: string;
+  type: 'fraternity' | 'sorority';
 }
 
 const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
@@ -69,6 +70,7 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedOrgs, setSelectedOrgs] = useState<string[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
+  const [orgTab, setOrgTab] = useState<'fraternity' | 'sorority'>('fraternity');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -85,6 +87,7 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
         const orgs: Organization[] = chapters.map(chapter => ({
           id: chapter.id,
           name: chapter.name,
+          type: chapter.type,
         }));
         setOrganizations(orgs);
       } catch (error) {
@@ -105,8 +108,31 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  // Filter organizations by current tab
+  const filteredOrganizations = organizations.filter(org => org.type === orgTab);
+
+  // Get counts for each tab
+  const fraternityCount = organizations.filter(org => org.type === 'fraternity').length;
+  const sororitiesCount = organizations.filter(org => org.type === 'sorority').length;
+  const fraternitySelectedCount = selectedOrgs.filter(id =>
+    organizations.find(org => org.id === id && org.type === 'fraternity')
+  ).length;
+  const sororitySelectedCount = selectedOrgs.filter(id =>
+    organizations.find(org => org.id === id && org.type === 'sorority')
+  ).length;
+
   const selectAllOrgs = () => {
-    setSelectedOrgs(organizations.map(org => org.id));
+    // Only select organizations in the current tab
+    const currentTabOrgs = organizations.filter(org => org.type === orgTab);
+    const currentTabIds = currentTabOrgs.map(org => org.id);
+    // Add to existing selection (preserve other tab's selections)
+    setSelectedOrgs(prev => [...new Set([...prev, ...currentTabIds])]);
+  };
+
+  const clearAllOrgs = () => {
+    // Only clear organizations in the current tab
+    const currentTabIds = organizations.filter(org => org.type === orgTab).map(org => org.id);
+    setSelectedOrgs(prev => prev.filter(id => !currentTabIds.includes(id)));
   };
 
   const validate = (): boolean => {
@@ -343,20 +369,45 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
             {/* Organization Selector */}
             {!allowAll && (
               <View style={styles.orgSection}>
-                <View style={styles.orgHeader}>
-                  <Text style={styles.orgLabel}>Allowed Organizations</Text>
+                <Text style={styles.orgLabel}>Allowed Organizations</Text>
+
+                {/* Fraternity/Sorority Tabs */}
+                <View style={styles.orgTabs}>
+                  <TouchableOpacity
+                    style={[styles.orgTab, orgTab === 'fraternity' && styles.orgTabActive]}
+                    onPress={() => setOrgTab('fraternity')}
+                  >
+                    <Text style={[styles.orgTabText, orgTab === 'fraternity' && styles.orgTabTextActive]}>
+                      Fraternities ({fraternitySelectedCount}/{fraternityCount})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.orgTab, orgTab === 'sorority' && styles.orgTabActive]}
+                    onPress={() => setOrgTab('sorority')}
+                  >
+                    <Text style={[styles.orgTabText, orgTab === 'sorority' && styles.orgTabTextActive]}>
+                      Sororities ({sororitySelectedCount}/{sororitiesCount})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Select/Clear buttons for current tab */}
+                <View style={styles.orgActions}>
                   <TouchableOpacity onPress={selectAllOrgs}>
                     <Text style={styles.selectAllButton}>Select All</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={clearAllOrgs}>
+                    <Text style={styles.clearAllButton}>Clear</Text>
                   </TouchableOpacity>
                 </View>
 
                 {loadingOrgs ? (
                   <Text style={styles.loadingText}>Loading organizations...</Text>
-                ) : organizations.length === 0 ? (
-                  <Text style={styles.emptyText}>No organizations found</Text>
+                ) : filteredOrganizations.length === 0 ? (
+                  <Text style={styles.emptyText}>No {orgTab === 'fraternity' ? 'fraternities' : 'sororities'} found</Text>
                 ) : (
                   <View style={styles.orgList}>
-                    {organizations.map(org => (
+                    {filteredOrganizations.map(org => (
                       <TouchableOpacity
                         key={org.id}
                         style={[
@@ -460,21 +511,52 @@ const styles = StyleSheet.create({
   orgSection: {
     marginTop: spacing.md,
   },
-  orgHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
   orgLabel: {
     ...typography.body,
     fontWeight: '600',
     color: colors.gray[700],
+    marginBottom: spacing.sm,
+  },
+  orgTabs: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.gray[100],
+    padding: 4,
+  },
+  orgTab: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    borderRadius: borderRadius.md - 2,
+  },
+  orgTabActive: {
+    backgroundColor: colors.white,
+  },
+  orgTabText: {
+    ...typography.caption,
+    color: colors.gray[600],
+    fontWeight: '500',
+  },
+  orgTabTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  orgActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
   },
   selectAllButton: {
     ...typography.body,
     color: colors.primary,
     fontWeight: '600',
+  },
+  clearAllButton: {
+    ...typography.body,
+    color: colors.gray[500],
+    fontWeight: '500',
   },
   orgList: {
     borderWidth: 1,

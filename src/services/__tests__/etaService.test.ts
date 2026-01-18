@@ -9,9 +9,7 @@
 
 import {
   calculateETA,
-  calculateETAToAddress,
   calculateETAWithFallback,
-  calculateETAToAddressWithFallback,
   calculateDistance,
   metersToMiles,
   metersToKilometers,
