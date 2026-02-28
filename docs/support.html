@@ -1,11 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Support — RallyRide</title>
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         :root {
             --primary: #7B68A8;
             --primary-dark: #5D4F82;
@@ -18,6 +26,7 @@
             --radius: 10px;
             --max-width: 960px;
         }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background: var(--bg);
@@ -25,6 +34,7 @@
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
         }
+
         nav {
             background: var(--white);
             border-bottom: 1px solid var(--border);
@@ -32,6 +42,7 @@
             top: 0;
             z-index: 100;
         }
+
         .nav-inner {
             max-width: var(--max-width);
             margin: 0 auto;
@@ -41,13 +52,20 @@
             justify-content: space-between;
             height: 64px;
         }
+
         .nav-brand {
             font-size: 1.25rem;
             font-weight: 700;
             color: var(--primary);
             text-decoration: none;
         }
-        .nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         .nav-links a {
             color: var(--text-light);
             text-decoration: none;
@@ -57,32 +75,39 @@
             border-radius: 6px;
             transition: background 0.2s, color 0.2s;
         }
-        .nav-links a:hover, .nav-links a.active {
+
+        .nav-links a:hover,
+        .nav-links a.active {
             background: var(--bg);
             color: var(--primary);
         }
+
         .page-header {
             background: linear-gradient(165deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: var(--white);
             padding: 48px 24px;
             text-align: center;
         }
+
         .page-header h1 {
             font-size: clamp(1.8rem, 4vw, 2.4rem);
             font-weight: 800;
             margin-bottom: 8px;
         }
+
         .page-header p {
             opacity: 0.85;
             font-size: 0.95rem;
             max-width: 520px;
             margin: 0 auto;
         }
+
         .content {
             max-width: 720px;
             margin: 0 auto;
             padding: 48px 24px 64px;
         }
+
         .content h2 {
             font-size: 1.35rem;
             font-weight: 700;
@@ -92,38 +117,54 @@
             padding-bottom: 8px;
             border-bottom: 2px solid var(--border);
         }
-        .content h2:first-child { margin-top: 0; }
+
+        .content h2:first-child {
+            margin-top: 0;
+        }
+
         .content p {
             margin-bottom: 16px;
             color: var(--text-light);
             line-height: 1.75;
         }
+
         .content ul {
             margin-bottom: 16px;
             padding-left: 24px;
         }
+
         .content li {
             margin-bottom: 8px;
             color: var(--text-light);
             line-height: 1.65;
         }
-        .content strong { color: var(--text); }
+
+        .content strong {
+            color: var(--text);
+        }
+
         .content a {
             color: var(--primary);
             text-decoration: none;
             font-weight: 500;
         }
-        .content a:hover { text-decoration: underline; }
+
+        .content a:hover {
+            text-decoration: underline;
+        }
+
         .content hr {
             border: none;
             border-top: 1px solid var(--border);
             margin: 40px 0;
         }
+
         .content em {
             font-style: italic;
             color: var(--text-light);
             font-size: 0.9rem;
         }
+
         /* FAQ ACCORDION */
         .faq-section h3 {
             font-size: 1.05rem;
@@ -132,6 +173,7 @@
             margin-top: 28px;
             margin-bottom: 12px;
         }
+
         .faq-item {
             background: var(--white);
             border: 1px solid var(--border);
@@ -139,9 +181,11 @@
             margin-bottom: 10px;
             overflow: hidden;
         }
+
         .faq-item input[type="checkbox"] {
             display: none;
         }
+
         .faq-item label {
             display: flex;
             align-items: center;
@@ -154,9 +198,11 @@
             transition: background 0.2s;
             user-select: none;
         }
+
         .faq-item label:hover {
             background: var(--bg);
         }
+
         .faq-item label::after {
             content: "+";
             font-size: 1.3rem;
@@ -166,30 +212,37 @@
             flex-shrink: 0;
             margin-left: 12px;
         }
-        .faq-item input[type="checkbox"]:checked + label::after {
+
+        .faq-item input[type="checkbox"]:checked+label::after {
             content: "\2212";
         }
+
         .faq-answer {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
         }
-        .faq-item input[type="checkbox"]:checked ~ .faq-answer {
+
+        .faq-item input[type="checkbox"]:checked~.faq-answer {
             max-height: 400px;
         }
+
         .faq-answer-inner {
             padding: 0 20px 16px;
             color: var(--text-light);
             line-height: 1.7;
             font-size: 0.93rem;
         }
+
         .faq-answer-inner ul {
             margin-top: 8px;
             padding-left: 20px;
         }
+
         .faq-answer-inner li {
             margin-bottom: 4px;
         }
+
         /* CONTACT BOX */
         .contact-box {
             background: var(--white);
@@ -198,16 +251,20 @@
             padding: 28px 24px;
             margin-top: 8px;
         }
+
         .contact-box p {
             margin-bottom: 12px;
         }
+
         .contact-box ul {
             list-style: none;
             padding: 0;
         }
+
         .contact-box li {
             padding: 4px 0;
         }
+
         footer {
             text-align: center;
             padding: 32px 24px;
@@ -215,11 +272,18 @@
             color: var(--text-light);
             font-size: 0.85rem;
         }
+
         @media (max-width: 600px) {
-            .nav-inner { flex-direction: column; height: auto; padding: 12px 16px; gap: 8px; }
+            .nav-inner {
+                flex-direction: column;
+                height: auto;
+                padding: 12px 16px;
+                gap: 8px;
+            }
         }
     </style>
 </head>
+
 <body>
     <nav>
         <div class="nav-inner">
@@ -235,7 +299,8 @@
 
     <div class="page-header">
         <h1>Support</h1>
-        <p>RallyRide is a designated driver coordination app built for college Greek organizations. Find answers to common questions below.</p>
+        <p>RallyRide is a designated driver coordination app built for college Greek organizations. Find answers to
+            common questions below.</p>
     </div>
 
     <div class="content">
@@ -249,7 +314,8 @@
                 <label for="faq1">How do I create an account?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Download RallyRide, tap "Sign Up," and register using your university email (.edu). You'll receive a verification email &mdash; tap the link to verify your account before logging in.
+                        Download RallyRide, tap "Sign Up," and register using your university email (.edu). You'll
+                        receive a verification email &mdash; tap the link to verify your account before logging in.
                     </div>
                 </div>
             </div>
@@ -259,7 +325,8 @@
                 <label for="faq2">Why do I need a .edu email?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        RallyRide is exclusively for college students. We require a valid university email address to verify your student status and keep the platform safe.
+                        RallyRide is exclusively for college students. We require a valid university email address to
+                        verify your student status and keep the platform safe.
                     </div>
                 </div>
             </div>
@@ -269,7 +336,8 @@
                 <label for="faq3">How do I join my chapter?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        After creating your account, search for your university and chapter within the app. Submit a join request, and your chapter admin will approve your membership.
+                        After creating your account, search for your university and chapter within the app. Submit a
+                        join request, and your chapter admin will approve your membership.
                     </div>
                 </div>
             </div>
@@ -281,7 +349,9 @@
                 <label for="faq4">How do I request a ride?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Open the app during an active chapter event and tap "Request Ride." Enter your pickup address and number of passengers. You'll be placed in the queue and matched with an available designated driver.
+                        Open the app during an active chapter event and tap "Request Ride." Enter your pickup address
+                        and number of passengers. You'll be placed in the queue and matched with an available designated
+                        driver.
                     </div>
                 </div>
             </div>
@@ -291,7 +361,8 @@
                 <label for="faq5">How is the ride queue prioritized?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Rides are assigned based on a combination of your class year and how long you've been waiting. Emergency requests are given immediate priority.
+                        Rides are assigned based on a combination of your class year and how long you've been waiting.
+                        Emergency requests are given immediate priority.
                     </div>
                 </div>
             </div>
@@ -301,7 +372,8 @@
                 <label for="faq6">How will I know when my driver is coming?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        You'll receive a push notification when a designated driver is assigned to your ride and another when they're on their way, including an estimated arrival time.
+                        You'll receive a push notification when a designated driver is assigned to your ride and another
+                        when they're on their way, including an estimated arrival time.
                     </div>
                 </div>
             </div>
@@ -311,7 +383,8 @@
                 <label for="faq7">What is the emergency button for?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        The emergency button flags your ride request as urgent and gives it immediate priority in the queue. It also sends an alert to your chapter admins. Use this only for genuine safety concerns.
+                        The emergency button flags your ride request as urgent and gives it immediate priority in the
+                        queue. It also sends an alert to your chapter admins. Use this only for genuine safety concerns.
                     </div>
                 </div>
             </div>
@@ -323,7 +396,8 @@
                 <label for="faq8">How do I sign up as a designated driver?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Your chapter admin assigns designated driver duties for each event. If you've been assigned, you'll see the DD dashboard when you open the app during an active event.
+                        Your chapter admin assigns designated driver duties for each event. If you've been assigned,
+                        you'll see the DD dashboard when you open the app during an active event.
                     </div>
                 </div>
             </div>
@@ -333,7 +407,8 @@
                 <label for="faq9">What car information do I need to provide?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Before going active as a DD, you must enter your vehicle's make, model, and color so riders can identify your car.
+                        Before going active as a DD, you must enter your vehicle's make, model, and color so riders can
+                        identify your car.
                     </div>
                 </div>
             </div>
@@ -343,7 +418,8 @@
                 <label for="faq10">How are rides assigned to me?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Rides are automatically assigned to the designated driver with the shortest estimated wait time, ensuring fair distribution among all active drivers.
+                        Rides are automatically assigned to the designated driver with the shortest estimated wait time,
+                        ensuring fair distribution among all active drivers.
                     </div>
                 </div>
             </div>
@@ -365,7 +441,8 @@
                 <label for="faq12">How do I delete my account?</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Contact us at <strong>support@rallyride.app</strong> with your account email, and we'll process your deletion request within 30 days. All associated personal data will be removed.
+                        Contact us at <strong>rallyridesafe@gmail.com</strong> with your account email, and we'll
+                        process your deletion request within 30 days. All associated personal data will be removed.
                     </div>
                 </div>
             </div>
@@ -377,8 +454,10 @@
                     <div class="faq-answer-inner">
                         Make sure notifications are enabled for RallyRide in your device settings:
                         <ul>
-                            <li><strong>iOS</strong>: Settings &gt; Notifications &gt; RallyRide &gt; Allow Notifications</li>
-                            <li><strong>Android</strong>: Settings &gt; Apps &gt; RallyRide &gt; Notifications &gt; Enable</li>
+                            <li><strong>iOS</strong>: Settings &gt; Notifications &gt; RallyRide &gt; Allow
+                                Notifications</li>
+                            <li><strong>Android</strong>: Settings &gt; Apps &gt; RallyRide &gt; Notifications &gt;
+                                Enable</li>
                         </ul>
                     </div>
                 </div>
@@ -391,7 +470,8 @@
                 <label for="faq14">The app says my email is not verified.</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Check your inbox (and spam folder) for the verification email. If you didn't receive one, tap "Resend Verification Email" on the login screen.
+                        Check your inbox (and spam folder) for the verification email. If you didn't receive one, tap
+                        "Resend Verification Email" on the login screen.
                     </div>
                 </div>
             </div>
@@ -401,7 +481,8 @@
                 <label for="faq15">I can't find my chapter.</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Your chapter admin needs to set up the chapter in the app first. Contact your chapter's leadership to make sure RallyRide has been configured for your organization.
+                        Your chapter admin needs to set up the chapter in the app first. Contact your chapter's
+                        leadership to make sure RallyRide has been configured for your organization.
                     </div>
                 </div>
             </div>
@@ -411,7 +492,8 @@
                 <label for="faq16">My ride request is stuck in the queue.</label>
                 <div class="faq-answer">
                     <div class="faq-answer-inner">
-                        Ride assignment depends on designated driver availability. If all drivers are currently completing rides, your request will be assigned as soon as a driver becomes available.
+                        Ride assignment depends on designated driver availability. If all drivers are currently
+                        completing rides, your request will be assigned as soon as a driver becomes available.
                     </div>
                 </div>
             </div>
@@ -423,7 +505,7 @@
         <div class="contact-box">
             <p>If your question isn't answered above, reach out to us:</p>
             <ul>
-                <li><strong>Email</strong>: support@rallyride.app</li>
+                <li><strong>Email</strong>: rallyridesafe@gmail.com</li>
                 <li><strong>Response Time</strong>: Within 48 hours</li>
             </ul>
             <p style="margin-top: 16px;">When contacting support, please include:</p>
@@ -444,4 +526,5 @@
         &copy; 2026 RallyRide. All rights reserved.
     </footer>
 </body>
+
 </html>
