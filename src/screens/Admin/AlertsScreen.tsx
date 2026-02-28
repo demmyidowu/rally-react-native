@@ -15,12 +15,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { AdminScreenProps } from '../../navigation/types';
 import { useAppSelector } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { AdminAlert, AlertType, getAlertTypeDisplayName } from '../../models/AdminAlert';
 import { fetchAdminAlerts, markAlertAsRead } from '../../services';
-import { colors, spacing, typography, borderRadius, shadows } from '../../components/theme';
+import { colors, spacing, typography, borderRadius, shadows, borders } from '../../components/theme';
 
 type Props = AdminScreenProps<'Alerts'>;
 
@@ -29,26 +30,53 @@ type FilterType = 'all' | 'unread' | 'emergency' | 'dd_activity';
 /**
  * Get icon for alert type
  */
-const getAlertIcon = (type: AlertType): string => {
+const getAlertIcon = (type: AlertType): keyof typeof Ionicons.glyphMap => {
   switch (type) {
     case AlertType.EMERGENCY_RIDE:
-      return '🚨';
+      return 'alert-circle';
     case AlertType.DD_INACTIVE_TOGGLE:
-      return '⚠️';
+      return 'warning-outline';
     case AlertType.DD_PROLONGED_INACTIVE:
-      return '⏰';
+      return 'time-outline';
     case AlertType.SYSTEM_ERROR:
-      return '❌';
+      return 'close-circle-outline';
     default:
-      return '📢';
+      return 'notifications-outline';
+  }
+};
+
+/**
+ * Get color for alert type
+ */
+const getAlertIconColor = (type: AlertType): string => {
+  switch (type) {
+    case AlertType.EMERGENCY_RIDE:
+      return colors.error;
+    case AlertType.DD_INACTIVE_TOGGLE:
+      return colors.warning;
+    case AlertType.DD_PROLONGED_INACTIVE:
+      return colors.warning;
+    case AlertType.SYSTEM_ERROR:
+      return colors.error;
+    default:
+      return colors.primary;
   }
 };
 
 /**
  * Format timestamp for display
+ * Accepts ISO string (from converted timestamps), Date, or Firestore Timestamp
  */
-const formatTimestamp = (timestamp: { toDate?: () => Date } | Date): string => {
-  const date = timestamp instanceof Date ? timestamp : timestamp?.toDate?.() || new Date();
+const formatTimestamp = (timestamp: string | Date | { toDate?: () => Date }): string => {
+  let date: Date;
+  if (typeof timestamp === 'string') {
+    date = new Date(timestamp);
+  } else if (timestamp instanceof Date) {
+    date = timestamp;
+  } else {
+    date = timestamp?.toDate?.() || new Date();
+  }
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -161,42 +189,54 @@ const AlertsScreen: React.FC<Props> = ({ navigation: _navigation }) => {
   /**
    * Render individual alert item
    */
-  const renderAlertItem = ({ item }: { item: AdminAlert }) => (
-    <TouchableOpacity
-      style={[styles.alertItem, !item.isRead && styles.alertItemUnread]}
-      onPress={() => !item.isRead && handleMarkAsRead(item.id)}
-      activeOpacity={item.isRead ? 1 : 0.7}
-    >
-      <View style={styles.alertIconContainer}>
-        <Text style={styles.alertIcon}>{getAlertIcon(item.type)}</Text>
-      </View>
-      <View style={styles.alertContent}>
-        <View style={styles.alertHeader}>
-          <Text style={styles.alertType}>{getAlertTypeDisplayName(item.type)}</Text>
-          <Text style={styles.alertTime}>{formatTimestamp(item.createdAt)}</Text>
+  const renderAlertItem = ({ item }: { item: AdminAlert }) => {
+    const iconColor = getAlertIconColor(item.type);
+
+    return (
+      <TouchableOpacity
+        style={[styles.alertItem, !item.isRead && styles.alertItemUnread]}
+        onPress={() => !item.isRead && handleMarkAsRead(item.id)}
+        activeOpacity={item.isRead ? 1 : 0.7}
+      >
+        <View style={[styles.alertIconContainer, { backgroundColor: `${iconColor}15` }]}>
+          <Ionicons
+            name={getAlertIcon(item.type)}
+            size={24}
+            color={iconColor}
+          />
         </View>
-        <Text
-          style={[styles.alertMessage, !item.isRead && styles.alertMessageUnread]}
-          numberOfLines={3}
-        >
-          {item.message}
-        </Text>
-        {!item.isRead && (
-          <Text style={styles.tapToRead}>Tap to mark as read</Text>
-        )}
-      </View>
-      {!item.isRead && <View style={styles.unreadIndicator} />}
-    </TouchableOpacity>
-  );
+        <View style={styles.alertContent}>
+          <View style={styles.alertHeader}>
+            <Text style={styles.alertType}>{getAlertTypeDisplayName(item.type)}</Text>
+            <Text style={styles.alertTime}>{formatTimestamp(item.createdAt)}</Text>
+          </View>
+          <Text
+            style={[styles.alertMessage, !item.isRead && styles.alertMessageUnread]}
+            numberOfLines={3}
+          >
+            {item.message}
+          </Text>
+          {!item.isRead && (
+            <Text style={styles.tapToRead}>Tap to mark as read</Text>
+          )}
+        </View>
+        {!item.isRead && <View style={styles.unreadIndicator} />}
+      </TouchableOpacity>
+    );
+  };
 
   /**
    * Render empty state
    */
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>
-        {filter === 'unread' ? '✅' : '📭'}
-      </Text>
+      <View style={[styles.emptyIconContainer, { backgroundColor: `${colors.success}15` }]}>
+        <Ionicons
+          name={filter === 'unread' ? 'checkmark-circle-outline' : 'mail-open-outline'}
+          size={48}
+          color={filter === 'unread' ? colors.success : colors.gray[400]}
+        />
+      </View>
       <Text style={styles.emptyTitle}>
         {filter === 'unread' ? 'All caught up!' : 'No alerts'}
       </Text>
@@ -252,6 +292,7 @@ const AlertsScreen: React.FC<Props> = ({ navigation: _navigation }) => {
       {/* Unread count badge */}
       {filter === 'all' && alerts.filter((a) => !a.isRead).length > 0 && (
         <View style={styles.unreadBadge}>
+          <Ionicons name="notifications" size={16} color={colors.white} style={{ marginRight: spacing.xs }} />
           <Text style={styles.unreadBadgeText}>
             {alerts.filter((a) => !a.isRead).length} unread
           </Text>
@@ -281,8 +322,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: borders.thin,
+    borderBottomColor: colors.gray[100],
   },
   filterTab: {
     paddingHorizontal: spacing.md,
@@ -297,7 +338,7 @@ const styles = StyleSheet.create({
   filterTabText: {
     ...typography.caption,
     color: colors.gray[600],
-    fontWeight: '500',
+    fontWeight: '600',
   },
   filterTabTextActive: {
     color: colors.white,
@@ -315,24 +356,22 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
+    borderWidth: borders.thin,
+    borderColor: colors.gray[100],
     ...shadows.sm,
   },
   alertItemUnread: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceLight,
     borderLeftWidth: 4,
     borderLeftColor: colors.primary,
   },
   alertIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.gray[100],
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
-  },
-  alertIcon: {
-    fontSize: 24,
   },
   alertContent: {
     flex: 1,
@@ -380,9 +419,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
   emptyTitle: {
     ...typography.h3,
@@ -395,6 +438,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   unreadBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     position: 'absolute',
     bottom: spacing.lg,
     alignSelf: 'center',
@@ -402,7 +447,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    ...shadows.md,
+    ...shadows.lg,
   },
   unreadBadgeText: {
     ...typography.body,

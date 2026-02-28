@@ -1,5 +1,3 @@
-import { Timestamp } from 'firebase/firestore';
-
 /**
  * User role enumeration
  */
@@ -73,11 +71,11 @@ export interface User {
    */
   nextRidePenalty?: number;
 
-  /** Timestamp when the user was created */
-  createdAt: Timestamp;
+  /** Timestamp when the user was created (ISO string) */
+  createdAt: string;
 
-  /** Timestamp when the user was last updated */
-  updatedAt: Timestamp;
+  /** Timestamp when the user was last updated (ISO string) */
+  updatedAt: string;
 }
 
 /**

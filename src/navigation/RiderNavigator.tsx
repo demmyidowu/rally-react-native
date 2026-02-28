@@ -24,6 +24,7 @@ export const RiderNavigator: React.FC = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: true,
+        headerBackTitle: '',
         headerStyle: {
           backgroundColor: '#512888', // K-State purple
         },
@@ -38,8 +39,7 @@ export const RiderNavigator: React.FC = () => {
         name="RiderDashboard"
         component={RiderDashboardScreen}
         options={{
-          title: 'Rider Dashboard',
-          headerLeft: () => null, // No back button on main dashboard
+          headerShown: false, // Custom greeting header in screen
         }}
       />
       <Stack.Screen

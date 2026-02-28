@@ -45,19 +45,20 @@ const initialState: DDAssignmentsState = {
   error: null,
 };
 
-// Helper: Convert Firestore DDAssignmentDocument to DDAssignment
+// Helper: Convert Firestore document to DDAssignment
+// Converts Timestamps to ISO strings for Redux serialization
 const convertAssignmentDocToAssignment = (
   id: string,
-  doc: DDAssignmentDocument
+  doc: any
 ): DDAssignment => ({
   ...doc,
   id,
-  lastToggleAt: doc.lastToggleAt?.toDate?.(),
-  lastActiveTimestamp: doc.lastActiveTimestamp?.toDate?.(),
-  lastInactiveTimestamp: doc.lastInactiveTimestamp?.toDate?.(),
-  assignedAt: doc.assignedAt?.toDate?.() || new Date(),
-  createdAt: doc.createdAt?.toDate?.() || new Date(),
-  updatedAt: doc.updatedAt?.toDate?.() || new Date(),
+  lastToggleAt: doc.lastToggleAt?.toDate?.().toISOString(),
+  lastActiveTimestamp: doc.lastActiveTimestamp?.toDate?.().toISOString(),
+  lastInactiveTimestamp: doc.lastInactiveTimestamp?.toDate?.().toISOString(),
+  assignedAt: doc.assignedAt?.toDate?.().toISOString() || new Date().toISOString(),
+  createdAt: doc.createdAt?.toDate?.().toISOString() || new Date().toISOString(),
+  updatedAt: doc.updatedAt?.toDate?.().toISOString() || new Date().toISOString(),
 });
 
 // Async thunks
@@ -211,7 +212,9 @@ export const createDDAssignment = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const assignmentData: Omit<DDAssignmentDocument, 'id'> = {
+      // Note: We write Timestamps to Firestore (which is correct), 
+      // but read them back as ISO strings via convertAssignmentDocToAssignment
+      const assignmentData: any = {
         eventId,
         ddId,
         ddName,

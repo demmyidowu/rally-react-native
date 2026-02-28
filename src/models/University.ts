@@ -23,6 +23,27 @@ export interface University {
     /** Admin code for chapter admin self-registration */
     adminCode: string;
 
+    /**
+     * University campus coordinates for geofencing
+     * Used to validate ride requests are within service area
+     */
+    coordinates?: {
+        latitude: number;
+        longitude: number;
+    };
+
+    /**
+     * Maximum distance from campus for ride requests (in miles)
+     * Default: 8 miles
+     */
+    serviceRadiusMiles?: number;
+
+    /**
+     * Whether to enforce geofencing for this university
+     * Default: false (for backwards compatibility)
+     */
+    geofencingEnabled?: boolean;
+
     /** When the admin code was last updated/rotated */
     adminCodeUpdatedAt?: Timestamp;
 

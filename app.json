@@ -26,8 +26,10 @@
         "NSLocationWhenInUseUsageDescription": "RallyRide needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "RallyRide needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

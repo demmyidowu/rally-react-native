@@ -19,6 +19,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { RiderScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
@@ -30,6 +31,10 @@ import {
   upgradeRideToEmergency,
   selectLoading,
 } from '../../store/slices/ridesSlice';
+import {
+  selectAccessibleEvents,
+  fetchAccessibleEvents,
+} from '../../store/slices/eventsSlice';
 import { RideStatus } from '../../models/Ride';
 import {
   Button,
@@ -38,8 +43,10 @@ import {
   QueuePosition,
   StatusBadge,
   EmergencyButton,
+  ActionCard,
+  SectionHeader,
 } from '../../components';
-import { colors, spacing, typography, borderRadius, shadows } from '../../components/theme';
+import { colors, spacing, typography, borderRadius, shadows, borders } from '../../components/theme';
 
 type Props = RiderScreenProps<'RiderDashboard'>;
 
@@ -49,16 +56,23 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const myRide = useAppSelector(selectMyRide);
   const queuePosition = useAppSelector(selectQueuePosition);
   const loading = useAppSelector(selectLoading);
+  const accessibleEvents = useAppSelector(selectAccessibleEvents);
+
+  // Check if rider has access to any events
+  const hasAccessibleEvents = accessibleEvents.length > 0;
 
   useEffect(() => {
     if (user?.id) {
       dispatch(fetchMyRide(user.id));
+      // Fetch accessible events to know if rider can request rides
+      dispatch(fetchAccessibleEvents({ userId: user.id, userChapterId: user.chapterId }));
     }
-  }, [dispatch, user?.id]);
+  }, [dispatch, user?.id, user?.chapterId]);
 
   const handleRefresh = () => {
     if (user?.id) {
       dispatch(fetchMyRide(user.id));
+      dispatch(fetchAccessibleEvents({ userId: user.id, userChapterId: user.chapterId }));
     }
   };
 
@@ -67,6 +81,15 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleEmergencyRide = () => {
+    // Check if there are any accessible events
+    if (!hasAccessibleEvents && !myRide) {
+      Alert.alert(
+        'No Active Events',
+        'There are no active events available right now. Emergency rides can only be requested during an active event.'
+      );
+      return;
+    }
+
     // Check if user has an active ride that can be upgraded
     if (myRide && myRide.status !== RideStatus.COMPLETED && myRide.status !== RideStatus.CANCELLED) {
       // Already have an active ride - offer to upgrade it
@@ -105,7 +128,7 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
       // Show warning about penalty
       Alert.alert(
         'Late Cancellation Warning',
-        'Your DD has already arrived. Cancelling now will apply a -5 priority penalty to your next ride request.\n\nAre you sure you want to cancel?',
+        'Your DD has already arrived. Cancelling now will apply a priority penalty to your next ride request (You will be further back in the queue).\n\nAre you sure you want to cancel?',
         [
           { text: 'No, Keep Ride', style: 'cancel' },
           {
@@ -178,7 +201,7 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {myRide ? (
           <Card style={styles.currentRideCard}>
             <View style={styles.currentRideHeader}>
-              <Text style={styles.sectionTitle}>Current Ride</Text>
+              <SectionHeader title="Current Ride" icon="car-outline" />
               <StatusBadge status={myRide.status} />
             </View>
 
@@ -210,15 +233,28 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </Card>
         ) : (
           /* Request Ride Section */
-          <Card style={styles.requestCard}>
-            <Text style={styles.requestTitle}>Need a Ride?</Text>
+          <Card style={styles.requestCard} variant="elevated">
+            <View style={styles.requestIconContainer}>
+              <Ionicons
+                name={hasAccessibleEvents ? 'car-outline' : 'calendar-outline'}
+                size={48}
+                color={hasAccessibleEvents ? colors.primary : colors.gray[400]}
+              />
+            </View>
+            <Text style={styles.requestTitle}>
+              {hasAccessibleEvents ? 'Need a Ride?' : 'No Active Events'}
+            </Text>
             <Text style={styles.requestSubtitle}>
-              Request a safe ride from a designated driver
+              {hasAccessibleEvents
+                ? 'Request a safe ride from a designated driver'
+                : 'There are no active events available right now. Please check back later.'}
             </Text>
             <Button
               title="Request a Ride"
               onPress={handleRequestRide}
               fullWidth
+              icon="arrow-forward-outline"
+              disabled={!hasAccessibleEvents}
             />
           </Card>
         )}
@@ -232,23 +268,20 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={styles.actionCard}
+          <ActionCard
+            icon="document-text-outline"
+            title="My Rides"
+            subtitle="View history"
             onPress={() => navigation.navigate('MyRides')}
-          >
-            <Text style={styles.actionIcon}>📜</Text>
-            <Text style={styles.actionTitle}>My Rides</Text>
-            <Text style={styles.actionSubtitle}>View history</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
+            style={{ flex: 1 }}
+          />
+          <ActionCard
+            icon="person-outline"
+            title="Profile"
+            subtitle="View & edit"
             onPress={() => navigation.navigate('Profile')}
-          >
-            <Text style={styles.actionIcon}>👤</Text>
-            <Text style={styles.actionTitle}>Profile</Text>
-            <Text style={styles.actionSubtitle}>View & edit</Text>
-          </TouchableOpacity>
+            style={{ flex: 1 }}
+          />
         </View>
 
         {/* Join Chapter CTA - only show if user has no chapter */}
@@ -257,28 +290,39 @@ const RiderDashboardScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.joinChapterCard}
             onPress={() => navigation.navigate('JoinChapter')}
           >
-            <Text style={styles.joinChapterIcon}>🏛️</Text>
+            <View style={styles.joinChapterIconContainer}>
+              <Ionicons name="business-outline" size={28} color={colors.primary} />
+            </View>
             <View style={styles.joinChapterContent}>
               <Text style={styles.joinChapterTitle}>Join a Chapter</Text>
               <Text style={styles.joinChapterSubtitle}>Request to join your Greek organization</Text>
             </View>
-            <Text style={styles.joinChapterArrow}>→</Text>
+            <Ionicons name="chevron-forward" size={24} color={colors.primary} />
           </TouchableOpacity>
         )}
 
         {/* Info Section */}
         <Card style={styles.infoCard}>
-          <Text style={styles.infoTitle}>How It Works</Text>
+          <View style={styles.infoHeader}>
+            <Ionicons name="information-circle-outline" size={22} color={colors.primary} style={{ marginRight: spacing.sm }} />
+            <Text style={styles.infoTitle}>How It Works</Text>
+          </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoNumber}>1</Text>
+            <View style={styles.infoNumberContainer}>
+              <Text style={styles.infoNumber}>1</Text>
+            </View>
             <Text style={styles.infoText}>Request a ride with your current location</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoNumber}>2</Text>
+            <View style={styles.infoNumberContainer}>
+              <Text style={styles.infoNumber}>2</Text>
+            </View>
             <Text style={styles.infoText}>Wait for a DD to be assigned</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoNumber}>3</Text>
+            <View style={styles.infoNumberContainer}>
+              <Text style={styles.infoNumber}>3</Text>
+            </View>
             <Text style={styles.infoText}>Get notified when your ride is on the way</Text>
           </View>
         </Card>
@@ -337,10 +381,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.gray[800],
-  },
   cancelButton: {
     marginTop: spacing.md,
   },
@@ -349,6 +389,15 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     backgroundColor: colors.white,
+  },
+  requestIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
   requestTitle: {
     ...typography.h2,
@@ -362,9 +411,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
-  requestButton: {
-    width: '100%',
-  },
   emergencyButton: {
     marginBottom: spacing.lg,
   },
@@ -373,69 +419,62 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.lg,
   },
-  actionCard: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  actionIcon: {
-    fontSize: 32,
-    marginBottom: spacing.sm,
-  },
-  actionTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.gray[800],
-    marginBottom: spacing.xs,
-  },
-  actionSubtitle: {
-    ...typography.caption,
-    color: colors.gray[500],
-  },
   infoCard: {
     padding: spacing.lg,
     backgroundColor: colors.surfaceLight,
   },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   infoTitle: {
     ...typography.h3,
     color: colors.primary,
-    marginBottom: spacing.md,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: spacing.md,
   },
-  infoNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  infoNumberContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.primary,
-    color: colors.white,
-    textAlign: 'center',
-    lineHeight: 24,
-    fontSize: 14,
-    fontWeight: '600',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: spacing.md,
+  },
+  infoNumber: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
   infoText: {
     flex: 1,
     ...typography.body,
     color: colors.gray[600],
+    paddingTop: 4,
   },
   joinChapterCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.white,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.lg,
+    borderWidth: borders.thin,
+    borderColor: colors.primaryLight,
+    ...shadows.sm,
   },
-  joinChapterIcon: {
-    fontSize: 32,
+  joinChapterIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: spacing.md,
   },
   joinChapterContent: {
@@ -444,17 +483,12 @@ const styles = StyleSheet.create({
   joinChapterTitle: {
     ...typography.body,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.gray[800],
     marginBottom: spacing.xs,
   },
   joinChapterSubtitle: {
     ...typography.caption,
-    color: colors.gray[600],
-  },
-  joinChapterArrow: {
-    fontSize: 20,
-    color: colors.primary,
-    fontWeight: 'bold',
+    color: colors.gray[500],
   },
 });
 

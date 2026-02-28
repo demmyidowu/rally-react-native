@@ -1,4 +1,4 @@
-import { GeoPoint, Timestamp } from 'firebase/firestore';
+import { GeoPoint } from 'firebase/firestore';
 
 /**
  * Ride status enumeration
@@ -16,6 +16,7 @@ export enum RideStatus {
  * Ride model representing ride requests
  *
  * Stored in Firestore collection: `rides`
+ * All timestamps are ISO strings for Redux serialization
  */
 export interface Ride {
   /** Unique identifier for the ride */
@@ -75,23 +76,23 @@ export interface Ride {
   /** Overall position in queue across all DDs */
   queuePosition?: number;
 
-  /** Timestamp when the ride was requested */
-  requestedAt: Timestamp;
+  /** Timestamp when the ride was requested - ISO string */
+  requestedAt: string;
 
-  /** Timestamp when the ride was assigned to a DD */
-  assignedAt?: Timestamp;
+  /** Timestamp when the ride was assigned to a DD - ISO string */
+  assignedAt?: string;
 
-  /** Timestamp when the DD marked themselves as en route */
-  enrouteAt?: Timestamp;
+  /** Timestamp when the DD marked themselves as en route - ISO string */
+  enrouteAt?: string;
 
-  /** Timestamp when the DD arrived at pickup location */
-  arrivedAt?: Timestamp;
+  /** Timestamp when the DD arrived at pickup location - ISO string */
+  arrivedAt?: string;
 
-  /** Timestamp when the ride was completed */
-  completedAt?: Timestamp;
+  /** Timestamp when the ride was completed - ISO string */
+  completedAt?: string;
 
-  /** Timestamp when the ride was cancelled */
-  cancelledAt?: Timestamp;
+  /** Timestamp when the ride was cancelled - ISO string */
+  cancelledAt?: string;
 
   /** Reason for cancellation if applicable */
   cancellationReason?: string;
@@ -131,7 +132,7 @@ export const getRideStatusDisplayName = (status: RideStatus): string => {
 
 /**
  * RideDocument represents the Firestore document structure used by slices
- * Uses flexible types to support both Firestore SDK and converted data
+ * All timestamps are ISO strings after conversion
  */
 export interface RideDocument {
   id?: string;
@@ -152,12 +153,12 @@ export interface RideDocument {
   isEmergency: boolean;
   estimatedWaitTime?: number;
   queuePosition?: number;
-  requestedAt: Timestamp;
-  assignedAt?: Timestamp;
-  enRouteAt?: Timestamp;
-  arrivedAt?: Timestamp;
-  completedAt?: Timestamp;
-  cancelledAt?: Timestamp;
+  requestedAt: string;
+  assignedAt?: string;
+  enRouteAt?: string;
+  arrivedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
   cancellationReason?: string;
   notes?: string;
 }

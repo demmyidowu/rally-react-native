@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdminScreenProps } from '../../navigation/types';
 import { useAppSelector } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
-import { Header, Card, EmptyState, LoadingSpinner } from '../../components';
+import { Card, EmptyState, LoadingSpinner } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import {
     getChapterJoinRequests,
@@ -139,9 +139,7 @@ const JoinRequestsScreen: React.FC<Props> = ({ navigation }) => {
     );
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <Header title="Join Requests" showBack onBack={() => navigation.goBack()} />
-
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             {loading ? (
                 <LoadingSpinner />
             ) : requests.length === 0 ? (

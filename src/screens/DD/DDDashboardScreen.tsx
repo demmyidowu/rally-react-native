@@ -22,6 +22,7 @@ import {
   ActionSheetIOS,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { DDScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
@@ -41,8 +42,8 @@ import {
   completeRide,
 } from '../../store/slices/ridesSlice';
 import { completeRideForDD } from '../../store/slices/ddAssignmentsSlice';
-import { Card, RideCard, StatusBadge, CarInfoModal, CarInfo } from '../../components';
-import { colors, spacing, typography, borderRadius, shadows } from '../../components/theme';
+import { Card, RideCard, StatusBadge, CarInfoModal, CarInfo, ActionCard, SectionHeader, StatusIndicator } from '../../components';
+import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import { hasCompleteCarInfo, formatCarDescription } from '../../models/User';
 
 type Props = DDScreenProps<'DDDashboard'>;
@@ -313,10 +314,12 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
               ios_backgroundColor={colors.gray[300]}
             />
           </View>
-          <View style={[styles.statusIndicator, isActive ? styles.statusActive : styles.statusInactive]}>
-            <Text style={[styles.statusIndicatorText, isActive ? styles.statusActiveText : styles.statusInactiveText]}>
-              {isActive ? '🟢 Active' : '🔴 Inactive'}
-            </Text>
+          <View style={[styles.statusIndicator, isActive ? styles.statusActiveStyle : styles.statusInactive]}>
+            <StatusIndicator
+              status={isActive ? 'active' : 'inactive'}
+              size="medium"
+              showPulse={isActive}
+            />
           </View>
         </Card>
 
@@ -324,7 +327,7 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {currentRide && (
           <Card style={styles.currentRideCard}>
             <View style={styles.currentRideHeader}>
-              <Text style={styles.sectionTitle}>Current Ride</Text>
+              <SectionHeader title="Current Ride" icon="car-outline" />
               <StatusBadge status={currentRide.status} />
             </View>
             <RideCard
@@ -339,32 +342,29 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </Card>
         )}
 
-        {/* Quick Actions - Just Car Settings now */}
+        {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={styles.actionCard}
+          <ActionCard
+            icon="settings-outline"
+            title="Car Settings"
+            subtitle="Update car info"
             onPress={() => navigation.navigate('CarSettings')}
-          >
-            <Text style={styles.actionIcon}>⚙️</Text>
-            <Text style={styles.actionTitle}>Car Settings</Text>
-            <Text style={styles.actionSubtitle}>Update car info</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
+            style={{ flex: 1 }}
+          />
+          <ActionCard
+            icon="person-outline"
+            title="Profile"
+            subtitle="View & edit"
             onPress={() => navigation.navigate('Profile')}
-          >
-            <Text style={styles.actionIcon}>👤</Text>
-            <Text style={styles.actionTitle}>Profile</Text>
-            <Text style={styles.actionSubtitle}>View & edit</Text>
-          </TouchableOpacity>
+            style={{ flex: 1 }}
+          />
         </View>
 
         {/* Ride Queue - Pending rides waiting for a DD */}
         {rideQueue.length > 0 && (
-          <Card style={styles.queueCard}>
+          <Card style={styles.queueCard} accentColor={colors.warning}>
             <View style={styles.queueHeader}>
-              <Text style={styles.sectionTitle}>🚨 Ride Queue</Text>
+              <SectionHeader title="Ride Queue" icon="alert-circle-outline" iconColor={colors.warning} />
               <View style={styles.queueBadge}>
                 <Text style={styles.queueBadgeText}>{rideQueue.length}</Text>
               </View>
@@ -392,7 +392,7 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* Stats */}
         {myAssignment && (
           <Card style={styles.statsCard}>
-            <Text style={styles.sectionTitle}>Tonight's Stats</Text>
+            <SectionHeader title="Tonight's Stats" icon="stats-chart-outline" />
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{myAssignment.totalRides || 0}</Text>
@@ -414,11 +414,28 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Tips */}
         <Card style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>💡 DD Tips</Text>
-          <Text style={styles.tipItem}>• Enter your car info when going active</Text>
-          <Text style={styles.tipItem}>• Accept rides promptly - you're automatically en route</Text>
-          <Text style={styles.tipItem}>• Complete rides to help more members</Text>
-          <Text style={styles.tipItem}>• Tap the pickup address to open in Maps</Text>
+          <View style={styles.tipsHeader}>
+            <Ionicons name="bulb-outline" size={22} color={colors.primary} style={{ marginRight: spacing.sm }} />
+            <Text style={styles.tipsTitle}>DD Tips</Text>
+          </View>
+          <View style={styles.tipsList}>
+            <View style={styles.tipItem}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary} style={styles.tipIcon} />
+              <Text style={styles.tipText}>Enter your car info when going active</Text>
+            </View>
+            <View style={styles.tipItem}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary} style={styles.tipIcon} />
+              <Text style={styles.tipText}>Accept rides promptly - you're automatically en route</Text>
+            </View>
+            <View style={styles.tipItem}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary} style={styles.tipIcon} />
+              <Text style={styles.tipText}>Complete rides to help more members</Text>
+            </View>
+            <View style={styles.tipItem}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary} style={styles.tipIcon} />
+              <Text style={styles.tipText}>Tap the pickup address to open in Maps</Text>
+            </View>
+          </View>
         </Card>
       </ScrollView>
 
@@ -499,24 +516,15 @@ const styles = StyleSheet.create({
   },
   statusIndicator: {
     padding: spacing.sm,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  statusActive: {
+  statusActiveStyle: {
     backgroundColor: colors.successLight,
   },
   statusInactive: {
     backgroundColor: colors.gray[100],
-  },
-  statusIndicatorText: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  statusActiveText: {
-    color: colors.success,
-  },
-  statusInactiveText: {
-    color: colors.gray[500],
   },
   currentRideCard: {
     marginBottom: spacing.lg,
@@ -528,36 +536,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.gray[800],
-  },
   quickActions: {
     flexDirection: 'row',
     gap: spacing.md,
     marginBottom: spacing.lg,
-  },
-  actionCard: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  actionIcon: {
-    fontSize: 32,
-    marginBottom: spacing.sm,
-  },
-  actionTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.gray[800],
-    marginBottom: spacing.xs,
-  },
-  actionSubtitle: {
-    ...typography.caption,
-    color: colors.gray[500],
   },
   statsCard: {
     padding: spacing.lg,
@@ -590,21 +572,34 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     backgroundColor: colors.surfaceLight,
   },
+  tipsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   tipsTitle: {
     ...typography.h3,
     color: colors.primary,
-    marginBottom: spacing.md,
+  },
+  tipsList: {
+    gap: spacing.sm,
   },
   tipItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  tipIcon: {
+    marginRight: spacing.sm,
+    marginTop: 2,
+  },
+  tipText: {
+    flex: 1,
     ...typography.body,
     color: colors.gray[600],
-    marginBottom: spacing.sm,
   },
   queueCard: {
     padding: spacing.lg,
     marginBottom: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.warning,
   },
   queueHeader: {
     flexDirection: 'row',

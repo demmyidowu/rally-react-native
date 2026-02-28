@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdminScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectActiveEvent, selectEvents, updateEvent, endEvent, activateEvent, selectLoading } from '../../store/slices/eventsSlice';
-import { Header, Input, Button, Card } from '../../components';
+import { Input, Button, Card } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import { EventStatus } from '../../models/Event';
 
@@ -133,8 +133,7 @@ const EditEventScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="Edit Event" showBack onBack={() => navigation.goBack()} />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading event...</Text>
@@ -145,8 +144,7 @@ const EditEventScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (!event) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="Edit Event" showBack onBack={() => navigation.goBack()} />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>Event not found</Text>
           <Text style={styles.errorSubtext}>The event may have ended or been deleted.</Text>
@@ -158,9 +156,7 @@ const EditEventScreen: React.FC<Props> = ({ navigation, route }) => {
   const isEventActive = event.status === EventStatus.ACTIVE || event.status === EventStatus.SCHEDULED;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Edit Event" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}

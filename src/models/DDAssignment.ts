@@ -1,10 +1,9 @@
-import { Timestamp } from 'firebase/firestore';
-
 /**
  * Designated Driver Assignment model
  *
  * Tracks DD assignments for specific events and their activity status.
  * Stored in collection: ddAssignments
+ * All timestamps are ISO strings for Redux serialization
  */
 export interface DDAssignment {
   /** Unique identifier */
@@ -34,14 +33,14 @@ export interface DDAssignment {
   /** Track how many times DD toggled inactive (for monitoring excessive toggling) */
   inactiveToggles?: number;
 
-  /** Timestamp of last time DD toggled active status */
-  lastToggleAt?: Date;
+  /** Timestamp of last time DD toggled active status - ISO string */
+  lastToggleAt?: string;
 
-  /** Timestamp of last time DD became active */
-  lastActiveTimestamp?: Date;
+  /** Timestamp of last time DD became active - ISO string */
+  lastActiveTimestamp?: string;
 
-  /** Timestamp of last time DD became inactive */
-  lastInactiveTimestamp?: Date;
+  /** Timestamp of last time DD became inactive - ISO string */
+  lastInactiveTimestamp?: string;
 
   /** Total number of rides completed by this DD this event */
   totalRides: number;
@@ -49,18 +48,18 @@ export interface DDAssignment {
   /** Current ride IDs assigned to this DD */
   currentRides: string[];
 
-  /** Timestamp when the DD was assigned to the event */
-  assignedAt: Date;
+  /** Timestamp when the DD was assigned to the event - ISO string */
+  assignedAt: string;
 
-  /** Timestamp when the DD assignment was created */
-  createdAt: Date;
+  /** Timestamp when the DD assignment was created - ISO string */
+  createdAt: string;
 
-  /** Timestamp when the DD assignment was last updated */
-  updatedAt: Date;
+  /** Timestamp when the DD assignment was last updated - ISO string */
+  updatedAt: string;
 }
 
 /**
- * DDAssignment as stored in Firestore (with Timestamps instead of Dates)
+ * DDAssignment as stored in Firestore (after conversion, all timestamps are ISO strings)
  */
 export interface DDAssignmentDocument {
   id?: string;
@@ -72,14 +71,14 @@ export interface DDAssignmentDocument {
   carDescription?: string;
   isActive: boolean;
   inactiveToggles?: number;
-  lastToggleAt?: Timestamp;
-  lastActiveTimestamp?: Timestamp;
-  lastInactiveTimestamp?: Timestamp;
+  lastToggleAt?: string;
+  lastActiveTimestamp?: string;
+  lastInactiveTimestamp?: string;
   totalRides: number;
   currentRides: string[];
-  assignedAt: Timestamp;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  assignedAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -93,4 +92,3 @@ export interface DDAssignmentStats {
   estimatedWaitMinutes: number;
   isActive: boolean;
 }
-

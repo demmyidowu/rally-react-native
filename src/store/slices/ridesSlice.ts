@@ -45,17 +45,32 @@ const initialState: RidesState = {
   error: null,
 };
 
-// Helper: Convert Firestore RideDocument to Ride
-// Intentionally converts Timestamps to Dates for app use
-const convertRideDocToRide = (id: string, doc: RideDocument): Ride => ({
-  ...doc,
-  id,
-  requestedAt: (doc.requestedAt?.toDate?.() || new Date()) as unknown as Timestamp,
-  assignedAt: doc.assignedAt?.toDate?.() as unknown as Timestamp | undefined,
-  enrouteAt: doc.enRouteAt?.toDate?.() as unknown as Timestamp | undefined,
-  completedAt: doc.completedAt?.toDate?.() as unknown as Timestamp | undefined,
-  cancelledAt: doc.cancelledAt?.toDate?.() as unknown as Timestamp | undefined,
-});
+// Helper: Convert Firestore document to Ride
+// Converts Timestamps to ISO strings for Redux serialization
+// Destructure out all Timestamp fields to prevent non-serializable values in Redux
+const convertRideDocToRide = (id: string, doc: any): Ride => {
+  // Extract timestamp fields to prevent them from being spread into the result
+  const {
+    requestedAt,
+    assignedAt,
+    enRouteAt,
+    arrivedAt,
+    completedAt,
+    cancelledAt,
+    ...rest
+  } = doc;
+
+  return {
+    ...rest,
+    id,
+    requestedAt: requestedAt?.toDate?.().toISOString() || new Date().toISOString(),
+    assignedAt: assignedAt?.toDate?.().toISOString(),
+    enrouteAt: enRouteAt?.toDate?.().toISOString(),
+    arrivedAt: arrivedAt?.toDate?.().toISOString(),
+    completedAt: completedAt?.toDate?.().toISOString(),
+    cancelledAt: cancelledAt?.toDate?.().toISOString(),
+  };
+};
 
 // Helper: Calculate priority
 // Same chapter: (classYear × 10) + (waitMinutes × 0.5) + penalty

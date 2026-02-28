@@ -415,8 +415,8 @@ export function onAuthStateChange(callback: AuthStateCallback): () => void {
           role: UserRole.MEMBER,
           classYear: new Date().getFullYear(),
           isEmailVerified: firebaseUser.emailVerified,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
       }
 
@@ -657,7 +657,7 @@ async function loadUser(uid: string): Promise<User> {
     classYear: data.classYear,
     isEmailVerified: data.isEmailVerified,
     fcmToken: data.fcmToken,
-    createdAt: data.createdAt?.toDate() || new Date(),
-    updatedAt: data.updatedAt?.toDate() || new Date(),
+    createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
+    updatedAt: data.updatedAt?.toDate().toISOString() || new Date().toISOString(),
   };
 }

@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
@@ -20,8 +21,9 @@ import AdminNavigator from './AdminNavigator';
 import DDNavigator from './DDNavigator';
 import RiderNavigator from './RiderNavigator';
 
-// Import icons (placeholder - will use actual icon library)
+// Import theme and icons
 import { Ionicons } from '@expo/vector-icons';
+import { colors, shadows, spacing } from '../components/theme';
 
 const Tab = createBottomTabNavigator();
 
@@ -34,19 +36,23 @@ export const MainNavigator: React.FC = () => {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#512888', // K-State purple
-        tabBarInactiveTintColor: '#999999',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.gray[400],
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#E0E0E0',
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
+          backgroundColor: colors.white,
+          borderTopWidth: 0,
+          paddingTop: spacing.sm,
+          paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.md,
+          height: Platform.OS === 'ios' ? 88 : 68,
+          ...shadows.md,
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
+          marginTop: spacing.xs,
+        },
+        tabBarIconStyle: {
+          marginTop: spacing.xs,
         },
       }}
     >
@@ -57,8 +63,12 @@ export const MainNavigator: React.FC = () => {
           component={AdminNavigator}
           options={{
             tabBarLabel: 'Admin',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="settings-outline" size={size} color={color} />
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? "shield" : "shield-outline"}
+                size={size}
+                color={color}
+              />
             ),
           }}
         />
@@ -70,8 +80,12 @@ export const MainNavigator: React.FC = () => {
         component={DDNavigator}
         options={{
           tabBarLabel: 'DD',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="car-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "car" : "car-outline"}
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
@@ -82,8 +96,12 @@ export const MainNavigator: React.FC = () => {
         component={RiderNavigator}
         options={{
           tabBarLabel: 'Rider',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={size}
+              color={color}
+            />
           ),
         }}
       />

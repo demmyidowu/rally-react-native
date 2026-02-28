@@ -1,9 +1,10 @@
 /**
  * Input Component
  * Text input with label, error, and validation
+ * Enhanced with focus states and refined styling
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,13 +14,14 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from './theme';
+import { colors, spacing, borderRadius, typography, borders } from './theme';
 
 export interface InputProps {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
   onBlur?: () => void;
+  onFocus?: () => void;
   placeholder?: string;
   error?: string;
   secureTextEntry?: boolean;
@@ -37,6 +39,7 @@ export const Input: React.FC<InputProps> = ({
   value,
   onChangeText,
   onBlur,
+  onFocus,
   placeholder,
   error,
   secureTextEntry = false,
@@ -48,23 +51,46 @@ export const Input: React.FC<InputProps> = ({
   numberOfLines = 1,
   style,
 }) => {
+  const [isFocused, setIsFocused] = useState(false);
   const hasError = !!error;
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    onFocus?.();
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    onBlur?.();
+  };
+
+  const getContainerStyle = () => {
+    if (hasError) return styles.inputContainerError;
+    if (isFocused) return styles.inputContainerFocused;
+    if (!editable) return styles.inputContainerDisabled;
+    return null;
+  };
+
+  const getIconColor = () => {
+    if (hasError) return colors.error;
+    if (isFocused) return colors.primary;
+    return colors.gray[400];
+  };
 
   return (
     <View style={[styles.container, style]}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, isFocused && styles.labelFocused]}>{label}</Text>
       <View
         style={[
           styles.inputContainer,
-          hasError && styles.inputContainerError,
-          !editable && styles.inputContainerDisabled,
+          getContainerStyle(),
         ]}
       >
         {icon && (
           <Ionicons
             name={icon}
             size={20}
-            color={hasError ? colors.error : colors.gray[400]}
+            color={getIconColor()}
             style={styles.icon}
           />
         )}
@@ -76,7 +102,8 @@ export const Input: React.FC<InputProps> = ({
           ]}
           value={value}
           onChangeText={onChangeText}
-          onBlur={onBlur}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholder={placeholder}
           placeholderTextColor={colors.gray[400]}
           secureTextEntry={secureTextEntry}
@@ -115,19 +142,28 @@ const styles = StyleSheet.create({
     color: colors.gray[700],
     marginBottom: spacing.xs,
   },
+  labelFocused: {
+    color: colors.primary,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
-    borderWidth: 1,
+    borderWidth: borders.thin,
     borderColor: colors.gray[300],
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
-    minHeight: 48,
+    minHeight: 52,
+  },
+  inputContainerFocused: {
+    borderColor: colors.primary,
+    borderWidth: borders.medium,
+    backgroundColor: colors.surfaceLight,
   },
   inputContainerError: {
     borderColor: colors.error,
-    borderWidth: 2,
+    borderWidth: borders.medium,
+    backgroundColor: colors.errorLight,
   },
   inputContainerDisabled: {
     backgroundColor: colors.gray[100],

@@ -11,6 +11,11 @@ export * from './Button';
 export * from './Input';
 export * from './Card';
 
+// Action Components
+export * from './ActionCard';
+export * from './StatusIndicator';
+export * from './SectionHeader';
+
 // Complex Components
 export * from './RideCard';
 export * from './DDCard';

@@ -15,12 +15,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { AdminScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { selectActiveEvent, fetchActiveEvent, selectLoading as selectEventsLoading } from '../../store/slices/eventsSlice';
-import { Card, StatusBadge } from '../../components';
-import { colors, spacing, typography, borderRadius, shadows } from '../../components/theme';
+import { Card, StatusBadge, ActionCard, SectionHeader } from '../../components';
+import { colors, spacing, typography, borderRadius, borders } from '../../components/theme';
 import { AdminAlert, AlertType } from '../../models/AdminAlert';
 import { fetchAdminAlerts } from '../../services';
 
@@ -29,26 +30,53 @@ type Props = AdminScreenProps<'AdminDashboard'>;
 /**
  * Get icon for alert type
  */
-const getAlertIcon = (type: AlertType): string => {
+const getAlertIcon = (type: AlertType): keyof typeof Ionicons.glyphMap => {
   switch (type) {
     case AlertType.EMERGENCY_RIDE:
-      return '🚨';
+      return 'alert-circle';
     case AlertType.DD_INACTIVE_TOGGLE:
-      return '⚠️';
+      return 'warning-outline';
     case AlertType.DD_PROLONGED_INACTIVE:
-      return '⏰';
+      return 'time-outline';
     case AlertType.SYSTEM_ERROR:
-      return '❌';
+      return 'close-circle-outline';
     default:
-      return '📢';
+      return 'notifications-outline';
+  }
+};
+
+/**
+ * Get color for alert type
+ */
+const getAlertIconColor = (type: AlertType): string => {
+  switch (type) {
+    case AlertType.EMERGENCY_RIDE:
+      return colors.error;
+    case AlertType.DD_INACTIVE_TOGGLE:
+      return colors.warning;
+    case AlertType.DD_PROLONGED_INACTIVE:
+      return colors.warning;
+    case AlertType.SYSTEM_ERROR:
+      return colors.error;
+    default:
+      return colors.primary;
   }
 };
 
 /**
  * Format time ago for display
+ * Accepts ISO string (from converted timestamps), Date, or Firestore Timestamp
  */
-const formatTimeAgo = (timestamp: { toDate?: () => Date } | Date): string => {
-  const date = timestamp instanceof Date ? timestamp : timestamp?.toDate?.() || new Date();
+const formatTimeAgo = (timestamp: string | Date | { toDate?: () => Date }): string => {
+  let date: Date;
+  if (typeof timestamp === 'string') {
+    date = new Date(timestamp);
+  } else if (timestamp instanceof Date) {
+    date = timestamp;
+  } else {
+    date = timestamp?.toDate?.() || new Date();
+  }
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -134,7 +162,7 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Active Event Card */}
-        <Card style={styles.eventCard}>
+        <Card style={styles.eventCard} variant="elevated">
           {activeEvent ? (
             <>
               <View style={styles.eventHeader}>
@@ -142,7 +170,7 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <StatusBadge status={activeEvent.status} />
               </View>
               <Text style={styles.eventTime}>
-                Started at {new Date(activeEvent.startTime?.toDate?.() || Date.now()).toLocaleTimeString()}
+                Started at {new Date(activeEvent.startTime || Date.now()).toLocaleTimeString()}
               </Text>
             </>
           ) : (
@@ -152,7 +180,8 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.createEventButton}
                 onPress={() => navigation.navigate('CreateEvent')}
               >
-                <Text style={styles.createEventText}>+ Create Event</Text>
+                <Ionicons name="add-circle-outline" size={20} color={colors.white} style={{ marginRight: spacing.xs }} />
+                <Text style={styles.createEventText}>Create Event</Text>
               </TouchableOpacity>
             </>
           )}
@@ -160,7 +189,7 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Quick Stats */}
         <Card style={styles.statsCard}>
-          <Text style={styles.sectionTitle}>Quick Stats</Text>
+          <SectionHeader title="Quick Stats" icon="stats-chart-outline" />
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{quickStats.activeRides}</Text>
@@ -180,62 +209,52 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
         </Card>
 
         {/* Quick Actions */}
-        <Text style={styles.sectionTitleLarge}>Management</Text>
+        <SectionHeader title="Management" icon="grid-outline" style={{ marginTop: spacing.sm }} />
         <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={styles.actionCard}
+          <ActionCard
+            icon="calendar-outline"
+            title="Events"
+            subtitle="Manage events"
             onPress={() => navigation.navigate('EventManagement')}
-          >
-            <Text style={styles.actionIcon}>📅</Text>
-            <Text style={styles.actionTitle}>Events</Text>
-            <Text style={styles.actionSubtitle}>Manage events</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
+            style={styles.actionCardItem}
+          />
+          <ActionCard
+            icon="car-outline"
+            title="DDs"
+            subtitle="Manage drivers"
             onPress={() => navigation.navigate('DDManagement')}
-          >
-            <Text style={styles.actionIcon}>🚗</Text>
-            <Text style={styles.actionTitle}>DDs</Text>
-            <Text style={styles.actionSubtitle}>Manage drivers</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
+            style={styles.actionCardItem}
+          />
+          <ActionCard
+            icon="people-outline"
+            title="Members"
+            subtitle="View members"
             onPress={() => navigation.navigate('MemberManagement')}
-          >
-            <Text style={styles.actionIcon}>👥</Text>
-            <Text style={styles.actionTitle}>Members</Text>
-            <Text style={styles.actionSubtitle}>View members</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
+            style={styles.actionCardItem}
+          />
+          <ActionCard
+            icon="document-text-outline"
+            title="History"
+            subtitle="Ride history"
             onPress={() => navigation.navigate('RideHistory')}
-          >
-            <Text style={styles.actionIcon}>📜</Text>
-            <Text style={styles.actionTitle}>History</Text>
-            <Text style={styles.actionSubtitle}>Ride history</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
+            style={styles.actionCardItem}
+          />
+          <ActionCard
+            icon="download-outline"
+            title="Requests"
+            subtitle="Join requests"
             onPress={() => navigation.navigate('JoinRequests')}
-          >
-            <Text style={styles.actionIcon}>📥</Text>
-            <Text style={styles.actionTitle}>Requests</Text>
-            <Text style={styles.actionSubtitle}>Join requests</Text>
-          </TouchableOpacity>
+            style={styles.actionCardItem}
+          />
         </View>
 
         {/* Alerts Summary */}
         <Card style={styles.alertsCard}>
-          <View style={styles.alertsHeader}>
-            <Text style={styles.sectionTitle}>Recent Alerts</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Alerts')}>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
+          <SectionHeader
+            title="Recent Alerts"
+            icon="notifications-outline"
+            action={{ label: 'View All', onPress: () => navigation.navigate('Alerts') }}
+          />
           {loadingAlerts ? (
             <View style={styles.noAlertsContainer}>
               <ActivityIndicator size="small" color={colors.primary} />
@@ -251,7 +270,13 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   ]}
                   onPress={() => navigation.navigate('Alerts')}
                 >
-                  <Text style={styles.alertIcon}>{getAlertIcon(alert.type)}</Text>
+                  <View style={[styles.alertIconContainer, { backgroundColor: `${getAlertIconColor(alert.type)}15` }]}>
+                    <Ionicons
+                      name={getAlertIcon(alert.type)}
+                      size={20}
+                      color={getAlertIconColor(alert.type)}
+                    />
+                  </View>
                   <View style={styles.alertContent}>
                     <Text
                       style={[
@@ -272,6 +297,7 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           ) : (
             <View style={styles.noAlertsContainer}>
+              <Ionicons name="checkmark-circle-outline" size={32} color={colors.gray[300]} />
               <Text style={styles.noAlertsText}>No new alerts</Text>
             </View>
           )}
@@ -345,10 +371,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   createEventButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     alignSelf: 'center',
   },
   createEventText: {
@@ -359,16 +388,6 @@ const styles = StyleSheet.create({
   statsCard: {
     padding: spacing.lg,
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.gray[800],
-    marginBottom: spacing.md,
-  },
-  sectionTitleLarge: {
-    ...typography.h3,
-    color: colors.gray[800],
-    marginBottom: spacing.md,
   },
   statsRow: {
     flexDirection: 'row',
@@ -398,46 +417,18 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.lg,
   },
-  actionCard: {
+  actionCardItem: {
     width: '47%',
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  actionIcon: {
-    fontSize: 32,
-    marginBottom: spacing.sm,
-  },
-  actionTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.gray[800],
-    marginBottom: spacing.xs,
-  },
-  actionSubtitle: {
-    ...typography.caption,
-    color: colors.gray[500],
   },
   alertsCard: {
     padding: spacing.lg,
   },
-  alertsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  viewAllText: {
-    ...typography.caption,
-    color: colors.primary,
-  },
   noAlertsContainer: {
     padding: spacing.lg,
     backgroundColor: colors.gray[50],
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
+    gap: spacing.sm,
   },
   noAlertsText: {
     ...typography.body,
@@ -451,13 +442,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
     backgroundColor: colors.gray[50],
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: borders.thin,
+    borderColor: colors.gray[100],
   },
   alertItemUnread: {
     backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
   },
-  alertIcon: {
-    fontSize: 24,
+  alertIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: spacing.sm,
   },
   alertContent: {

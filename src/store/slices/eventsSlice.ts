@@ -8,7 +8,7 @@
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Event, EventDocument, CreateEventRequest, EventStatus } from '../../models/Event';
+import { Event, EventDocument, CreateEventRequest, EventStatus, canUserAccessEvent, isEventInEarlyAccess } from '../../models/Event';
 import { db } from '../../config/firebase';
 import {
   collection,
@@ -28,6 +28,7 @@ import {
 export interface EventsState {
   activeEvent: Event | null; // Currently active event
   events: Event[]; // All events
+  accessibleEvents: Event[]; // Events rider can request from (filtered by access rules)
   loading: boolean;
   error: string | null;
 }
@@ -35,20 +36,21 @@ export interface EventsState {
 const initialState: EventsState = {
   activeEvent: null,
   events: [],
+  accessibleEvents: [],
   loading: false,
   error: null,
 };
 
-// Helper: Convert Firestore EventDocument to Event
-// Intentionally converts Timestamps to Dates for app use
-const convertEventDocToEvent = (id: string, doc: EventDocument): Event => ({
+// Helper: Convert Firestore document to Event
+// Converts Timestamps to ISO strings for Redux serialization
+const convertEventDocToEvent = (id: string, doc: any): Event => ({
   ...doc,
   id,
-  date: (doc.date?.toDate?.() || doc.startTime?.toDate?.() || new Date()) as unknown as Timestamp,
-  startTime: (doc.startTime?.toDate?.() || new Date()) as unknown as Timestamp,
-  endTime: (doc.endTime?.toDate?.() || new Date()) as unknown as Timestamp,
-  createdAt: (doc.createdAt?.toDate?.() || new Date()) as unknown as Timestamp,
-  updatedAt: (doc.updatedAt?.toDate?.() || new Date()) as unknown as Timestamp,
+  date: doc.date?.toDate?.().toISOString() || doc.startTime?.toDate?.().toISOString() || new Date().toISOString(),
+  startTime: doc.startTime?.toDate?.().toISOString() || new Date().toISOString(),
+  endTime: doc.endTime?.toDate?.().toISOString() || new Date().toISOString(),
+  createdAt: doc.createdAt?.toDate?.().toISOString() || new Date().toISOString(),
+  updatedAt: doc.updatedAt?.toDate?.().toISOString() || new Date().toISOString(),
 });
 
 // Async thunks
@@ -161,6 +163,61 @@ export const fetchAllEvents = createAsyncThunk(
       return events;
     } catch (error: any) {
       return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Fetch events accessible to a specific rider (based on access rules)
+// Includes early access: hosting chapter can request rides 2.5 hours before event starts
+export const fetchAccessibleEvents = createAsyncThunk(
+  'events/fetchAccessibleEvents',
+  async (
+    { userId: _userId, userChapterId }: { userId: string; userChapterId?: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      // Query both ACTIVE and SCHEDULED events (for early access)
+      const activeQuery = query(
+        collection(db, 'events'),
+        where('status', '==', EventStatus.ACTIVE),
+        orderBy('startTime', 'desc')
+      );
+
+      const scheduledQuery = query(
+        collection(db, 'events'),
+        where('status', '==', EventStatus.SCHEDULED),
+        orderBy('startTime', 'desc')
+      );
+
+      // Fetch both queries in parallel
+      const [activeSnapshot, scheduledSnapshot] = await Promise.all([
+        getDocs(activeQuery),
+        getDocs(scheduledQuery),
+      ]);
+
+      const allActiveEvents = activeSnapshot.docs.map((doc) =>
+        convertEventDocToEvent(doc.id, doc.data() as EventDocument)
+      );
+
+      const allScheduledEvents = scheduledSnapshot.docs.map((doc) =>
+        convertEventDocToEvent(doc.id, doc.data() as EventDocument)
+      );
+
+      // Filter SCHEDULED events to only include those in early access window
+      const earlyAccessEvents = allScheduledEvents.filter((event) =>
+        isEventInEarlyAccess(event)
+      );
+
+      // Combine active events with early access events
+      const allAvailableEvents = [...allActiveEvents, ...earlyAccessEvents];
+
+      // Filter to events user can access based on access rules
+      // Uses canUserAccessEvent which handles both active events and early access
+      return allAvailableEvents.filter((event) =>
+        canUserAccessEvent(event, userChapterId)
+      );
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch accessible events');
     }
   }
 );
@@ -422,6 +479,22 @@ const eventsSlice = createSlice({
       // Set as active event when activated
       state.activeEvent = action.payload;
     });
+
+    // Fetch accessible events
+    builder
+      .addCase(fetchAccessibleEvents.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAccessibleEvents.fulfilled, (state, action) => {
+        state.loading = false;
+        state.accessibleEvents = action.payload;
+        state.error = null;
+      })
+      .addCase(fetchAccessibleEvents.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
   },
 });
 
@@ -432,6 +505,7 @@ import type { RootState } from '../store';
 
 export const selectActiveEvent = (state: RootState) => state.events.activeEvent;
 export const selectEvents = (state: RootState) => state.events.events;
+export const selectAccessibleEvents = (state: RootState) => state.events.accessibleEvents;
 export const selectLoading = (state: RootState) => state.events.loading;
 export const selectError = (state: RootState) => state.events.error;
 

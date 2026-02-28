@@ -1,5 +1,3 @@
-import { Timestamp } from 'firebase/firestore';
-
 /**
  * Alert type enumeration for different types of admin notifications
  */
@@ -21,6 +19,7 @@ export enum AlertType {
  * Admin Alert model for notifying admins of important events
  *
  * Stored in Firestore collection: `adminAlerts`
+ * All timestamps are ISO strings for Redux serialization
  */
 export interface AdminAlert {
   /** Unique identifier for the alert */
@@ -44,8 +43,8 @@ export interface AdminAlert {
   /** Whether the alert has been read/acknowledged by an admin */
   isRead: boolean;
 
-  /** Timestamp when the alert was created */
-  createdAt: Timestamp;
+  /** Timestamp when the alert was created - ISO string */
+  createdAt: string;
 }
 
 /**

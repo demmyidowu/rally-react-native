@@ -1,6 +1,7 @@
 /**
  * EmptyState Component
  * Display empty state with icon, message, and optional action
+ * Enhanced with icon background and better spacing
  */
 
 import React from 'react';
@@ -15,6 +16,7 @@ export interface EmptyStateProps {
   message: string;
   actionTitle?: string;
   onAction?: () => void;
+  iconColor?: string;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -23,11 +25,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   message,
   actionTitle,
   onAction,
+  iconColor = colors.gray[400],
 }) => {
   return (
     <View style={styles.container}>
-      <View style={styles.iconContainer}>
-        <Ionicons name={icon} size={64} color={colors.gray[400]} />
+      <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
+        <Ionicons name={icon} size={48} color={iconColor} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
@@ -50,6 +53,11 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   iconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: spacing.lg,
   },
   title: {

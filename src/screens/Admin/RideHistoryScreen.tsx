@@ -19,7 +19,7 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { selectRides, fetchActiveRides, selectLoading } from '../../store/slices/ridesSlice';
 import { Ride } from '../../models/Ride';
-import { Header, Card, EmptyState, LoadingSpinner, StatusBadge } from '../../components';
+import { Card, EmptyState, LoadingSpinner, StatusBadge } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
 type Props = AdminScreenProps<'RideHistory'>;
@@ -107,9 +107,7 @@ const RideHistoryScreen: React.FC<Props> = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Ride History" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>

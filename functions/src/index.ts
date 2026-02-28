@@ -100,6 +100,15 @@ export { notifyRiderDDArrived } from "./pushNotifications";
  */
 export { yearTransition } from "./yearTransition";
 
+/**
+ * Event auto-activation function
+ * Schedule: Every 5 minutes (America/Chicago)
+ * Actions:
+ * - Activates SCHEDULED events when startTime is reached
+ * - Completes ACTIVE events when endTime is reached
+ */
+export { eventAutoActivation } from "./eventAutoActivation";
+
 // ============================================================================
 // ACTIVITY MONITORING
 // ============================================================================

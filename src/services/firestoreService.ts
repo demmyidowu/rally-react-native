@@ -53,6 +53,7 @@ import {
   AdminAlert,
   YearTransitionLog,
 } from '../models';
+import { University } from '../models/University';
 
 // ============================================================================
 // Error Types
@@ -142,10 +143,54 @@ const mapFirestoreError = (error: any, context: string): FirestoreServiceError =
 };
 
 /**
+ * Recursively convert Firestore Timestamps to ISO strings for Redux serialization
+ */
+const convertTimestampsToISO = (data: any): any => {
+  if (data === null || data === undefined) {
+    return data;
+  }
+
+  // Check if it's a Firestore Timestamp (has toDate method)
+  if (data && typeof data.toDate === 'function') {
+    return data.toDate().toISOString();
+  }
+
+  // Check if it's a Date object
+  if (data instanceof Date) {
+    return data.toISOString();
+  }
+
+  // Handle arrays
+  if (Array.isArray(data)) {
+    return data.map(item => convertTimestampsToISO(item));
+  }
+
+  // Handle objects (but not GeoPoint which should stay as-is)
+  if (typeof data === 'object' && data !== null) {
+    // Skip GeoPoint objects (they have latitude and longitude properties)
+    if ('latitude' in data && 'longitude' in data && Object.keys(data).length === 2) {
+      return data;
+    }
+
+    const result: any = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        result[key] = convertTimestampsToISO(data[key]);
+      }
+    }
+    return result;
+  }
+
+  return data;
+};
+
+/**
  * Convert Firestore document to typed object with id
+ * Automatically converts all Timestamps to ISO strings for Redux serialization
  */
 const convertDocToModel = <T>(docSnap: any): T => {
-  return { id: docSnap.id, ...docSnap.data() } as T;
+  const rawData = { id: docSnap.id, ...docSnap.data() };
+  return convertTimestampsToISO(rawData) as T;
 };
 
 // ============================================================================
@@ -528,6 +573,25 @@ export const subscribeToChapter = (
  * Alias for real-time listener
  */
 export const observeChapter = subscribeToChapter;
+
+// ============================================================================
+// University Operations
+// ============================================================================
+
+/**
+ * Get a university by ID
+ *
+ * @param universityId - University ID to fetch
+ * @returns University object or null if not found
+ */
+export const getUniversity = async (universityId: string): Promise<University | null> => {
+  return await fetchDocument<University>('universities', universityId);
+};
+
+/**
+ * Alias for legacy code compatibility
+ */
+export const fetchUniversity = getUniversity;
 
 // ============================================================================
 // Event Operations

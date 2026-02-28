@@ -8,7 +8,6 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdminScreenProps } from '../../navigation/types';
-import { Header } from '../../components';
 import { colors, spacing, typography } from '../../components/theme';
 
 type Props = AdminScreenProps<'MemberDetails'>;
@@ -17,8 +16,7 @@ const MemberDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { userId } = route.params;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Member Details" showBack onBack={() => navigation.goBack()} />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.content}>
         <Text style={styles.text}>Member: {userId}</Text>
         <Text style={styles.subtext}>Coming soon...</Text>

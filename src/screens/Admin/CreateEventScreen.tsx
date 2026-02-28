@@ -22,7 +22,7 @@ import { AdminScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { createEvent, selectLoading } from '../../store/slices/eventsSlice';
-import { Header, Input, Button, Card } from '../../components';
+import { Input, Button, Card } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import { fetchChaptersForUniversity, getUniversityIdFromChapterId } from '../../services/chapterService';
 
@@ -188,9 +188,7 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Create Event" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -443,9 +441,18 @@ const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Info */}
           <Card style={styles.infoCard}>
-            <Text style={styles.infoTitle}>ℹ️ Event Info</Text>
+            <Text style={styles.infoTitle}>Event Info</Text>
             <Text style={styles.infoText}>• Assign DDs after creating the event</Text>
             <Text style={styles.infoText}>• DDs from your chapter will handle rides</Text>
+            <Text style={styles.infoText}>• Events automatically activate at start time</Text>
+          </Card>
+
+          {/* Early Access Info */}
+          <Card style={styles.earlyAccessCard}>
+            <Text style={styles.earlyAccessTitle}>Early Access</Text>
+            <Text style={styles.earlyAccessText}>
+              Your chapter members can request rides 2.5 hours before the event starts, even before other organizations have access.
+            </Text>
           </Card>
 
           <View style={styles.createButton}>
@@ -648,6 +655,23 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.primary,
     fontWeight: '600',
+  },
+  earlyAccessCard: {
+    padding: spacing.lg,
+    backgroundColor: colors.primaryLight + '15',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    marginBottom: spacing.lg,
+  },
+  earlyAccessTitle: {
+    ...typography.h3,
+    color: colors.primary,
+    marginBottom: spacing.sm,
+  },
+  earlyAccessText: {
+    ...typography.body,
+    color: colors.gray[700],
+    lineHeight: 22,
   },
 });
 

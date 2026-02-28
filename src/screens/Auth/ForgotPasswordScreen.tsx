@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../navigation/types';
 import { sendPasswordReset } from '../../services/authService';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Input, Header } from '../../components';
 import { colors, spacing, typography } from '../../components/theme';
 
@@ -62,7 +63,7 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
                 <Header title="Reset Password" showBack onBack={() => navigation.goBack()} />
                 <View style={styles.successContent}>
                     <View style={styles.iconCircle}>
-                        <Text style={styles.iconText}>✓</Text>
+                        <Ionicons name="checkmark" size={40} color={colors.success} />
                     </View>
                     <Text style={styles.successTitle}>Check Your Email</Text>
                     <Text style={styles.successText}>
@@ -164,10 +165,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: spacing.lg,
-    },
-    iconText: {
-        fontSize: 40,
-        color: colors.success,
     },
     successTitle: {
         ...typography.h2,

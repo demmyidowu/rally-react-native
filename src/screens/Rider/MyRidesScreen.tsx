@@ -23,7 +23,7 @@ import {
   selectLoading,
 } from '../../store/slices/ridesSlice';
 import { Ride } from '../../models/Ride';
-import { Header, RideCard, EmptyState, LoadingSpinner } from '../../components';
+import { RideCard, EmptyState, LoadingSpinner } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
 type Props = RiderScreenProps<'MyRides'>;
@@ -85,9 +85,7 @@ const MyRidesScreen: React.FC<Props> = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="My Rides" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
         {filters.map((f) => (

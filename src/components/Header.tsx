@@ -1,12 +1,13 @@
 /**
  * Header Component
  * Custom header with title, back button, and action buttons
+ * Enhanced with subtle border and refined typography
  */
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, shadows } from './theme';
+import { colors, spacing, typography, shadows, borders } from './theme';
 
 export interface HeaderAction {
   icon: keyof typeof Ionicons.glyphMap;
@@ -70,8 +71,10 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.white,
     paddingTop: Platform.OS === 'ios' ? 50 : spacing.md,
-    paddingBottom: spacing.sm,
-    ...shadows.sm,
+    paddingBottom: spacing.md,
+    borderBottomWidth: borders.thin,
+    borderBottomColor: colors.gray[100],
+    ...shadows.xs,
   },
   content: {
     flexDirection: 'row',
@@ -86,7 +89,8 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-    color: colors.black,
+    fontWeight: '700',
+    color: colors.gray[800],
     flex: 1,
     textAlign: 'center',
     marginHorizontal: spacing.sm,

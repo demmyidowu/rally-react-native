@@ -19,7 +19,7 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { selectEvents, fetchAllEvents, selectLoading } from '../../store/slices/eventsSlice';
 import { Event } from '../../models/Event';
-import { Header, Card, StatusBadge, EmptyState } from '../../components';
+import { Card, StatusBadge, EmptyState } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
 type Props = AdminScreenProps<'EventManagement'>;
@@ -116,19 +116,7 @@ const EventManagementScreen: React.FC<Props> = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header
-        title="Events"
-        showBack
-        onBack={() => navigation.goBack()}
-        rightActions={[
-          {
-            icon: 'add',
-            onPress: () => navigation.navigate('CreateEvent'),
-          },
-        ]}
-      />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
         {filters.map((f) => (

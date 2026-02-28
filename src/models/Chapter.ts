@@ -1,9 +1,8 @@
-import { Timestamp } from 'firebase/firestore';
-
 /**
  * Chapter model representing fraternity/sorority chapters
  *
  * Stored in Firestore collection: `chapters`
+ * All timestamps are ISO strings for Redux serialization
  */
 export interface Chapter {
   /** Unique identifier for the chapter */
@@ -19,14 +18,14 @@ export interface Chapter {
   inviteCode: string;
 
   /**
-   * Date when annual year transition occurs
+   * Date when annual year transition occurs - ISO string
    * Default: August 1st - triggers senior removal and class year advancement
    */
-  yearTransitionDate: Timestamp;
+  yearTransitionDate: string;
 
-  /** Timestamp when the chapter was created */
-  createdAt: Timestamp;
+  /** Timestamp when the chapter was created - ISO string */
+  createdAt: string;
 
-  /** Timestamp when the chapter was last updated */
-  updatedAt: Timestamp;
+  /** Timestamp when the chapter was last updated - ISO string */
+  updatedAt: string;
 }

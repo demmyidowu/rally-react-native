@@ -1,24 +1,27 @@
 /**
  * Button Component
  * Primary button with multiple variants for Rally app
+ * Enhanced with press animations and refined styling
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
-  TouchableOpacity,
+  View,
   Text,
   StyleSheet,
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography, shadows } from './theme';
+import { colors, spacing, borderRadius, typography, shadows, animations } from './theme';
 
 export interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'outline';
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
@@ -38,6 +41,34 @@ export const Button: React.FC<ButtonProps> = ({
   style,
 }) => {
   const isDisabled = disabled || loading;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.timing(scaleAnim, {
+      toValue: animations.buttonPress.scale,
+      duration: animations.buttonPress.duration,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: animations.buttonPress.duration,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const getIconColor = () => {
+    if (isDisabled) return colors.gray[500];
+    switch (variant) {
+      case 'secondary':
+      case 'outline':
+        return colors.primary;
+      default:
+        return colors.white;
+    }
+  };
 
   const containerStyle: ViewStyle[] = [
     styles.container,
@@ -54,34 +85,39 @@ export const Button: React.FC<ButtonProps> = ({
   ].filter(Boolean) as TextStyle[];
 
   return (
-    <TouchableOpacity
-      style={containerStyle}
-      onPress={onPress}
-      disabled={isDisabled}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityState={{ disabled: isDisabled }}
-    >
-      {loading ? (
-        <ActivityIndicator
-          color={variant === 'secondary' ? colors.primary : colors.white}
-          size="small"
-        />
-      ) : (
-        <>
-          {icon && (
-            <Ionicons
-              name={icon}
-              size={20}
-              color={variant === 'secondary' ? colors.primary : colors.white}
-              style={styles.icon}
-            />
-          )}
-          <Text style={textStyle}>{title}</Text>
-        </>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Pressable
+        style={containerStyle}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ disabled: isDisabled }}
+      >
+        {loading ? (
+          <ActivityIndicator
+            color={variant === 'secondary' || variant === 'outline' ? colors.primary : colors.white}
+            size="small"
+          />
+        ) : (
+          <>
+            {icon && (
+              <Ionicons
+                name={icon}
+                size={20}
+                color={getIconColor()}
+                style={styles.icon}
+              />
+            )}
+            <Text style={textStyle}>{title}</Text>
+            {/* Balance icon spacing for centered text when fullWidth */}
+            {icon && fullWidth && <View style={styles.iconSpacer} />}
+          </>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 };
 
@@ -92,8 +128,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    minHeight: 48,
+    borderRadius: borderRadius.lg,
+    minHeight: 52,
     ...shadows.sm,
   },
   fullWidth: {
@@ -107,6 +143,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primary,
   },
+  outline: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    ...shadows.xs,
+  },
   danger: {
     backgroundColor: colors.error,
   },
@@ -114,6 +156,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[300],
     borderColor: colors.gray[300],
     opacity: 0.6,
+    ...shadows.xs,
   },
   text: {
     ...typography.body,
@@ -125,6 +168,9 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: colors.primary,
   },
+  outlineText: {
+    color: colors.primary,
+  },
   dangerText: {
     color: colors.white,
   },
@@ -133,5 +179,8 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: spacing.sm,
+  },
+  iconSpacer: {
+    width: 20 + spacing.sm, // Match icon size + marginRight
   },
 });

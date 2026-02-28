@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DDScreenProps } from '../../navigation/types';
 import { useAppSelector } from '../../store/hooks';
 import { selectRides, selectLoading } from '../../store/slices/ridesSlice';
-import { Header, Card, Button, LoadingSpinner } from '../../components';
+import { Card, Button, LoadingSpinner } from '../../components';
 import { colors, spacing, typography } from '../../components/theme';
 
 type Props = DDScreenProps<'Navigation'>;
@@ -91,8 +91,7 @@ const NavigationScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (loading && !ride) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="Navigation" showBack onBack={() => navigation.goBack()} />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <LoadingSpinner />
       </SafeAreaView>
     );
@@ -100,8 +99,7 @@ const NavigationScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (!ride) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="Navigation" showBack onBack={() => navigation.goBack()} />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.notFound}>
           <Text style={styles.notFoundText}>Ride not found</Text>
         </View>
@@ -110,9 +108,7 @@ const NavigationScreen: React.FC<Props> = ({ navigation, route }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Navigation" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.content}>
         {/* Destination Info */}
         <Card style={styles.destinationCard}>

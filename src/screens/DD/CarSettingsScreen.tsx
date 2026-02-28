@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DDScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser, updateUserProfile } from '../../store/slices/authSlice';
-import { Header, Card, Input, Button } from '../../components';
+import { Card, Input, Button } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
 type Props = DDScreenProps<'CarSettings'>;
@@ -68,9 +68,7 @@ const CarSettingsScreen: React.FC<Props> = ({ navigation }) => {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <Header title="Car Settings" showBack onBack={() => navigation.goBack()} />
-
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
                 <Card style={styles.card}>
                     <Text style={styles.title}>Your Vehicle Information</Text>

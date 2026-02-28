@@ -23,6 +23,7 @@ export const DDNavigator: React.FC = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: true,
+        headerBackTitle: '',
         headerStyle: {
           backgroundColor: '#512888', // K-State purple
         },
@@ -37,8 +38,7 @@ export const DDNavigator: React.FC = () => {
         name="DDDashboard"
         component={DDDashboardScreen}
         options={{
-          title: 'DD Dashboard',
-          headerLeft: () => null, // No back button on main dashboard
+          headerShown: false, // Custom greeting header in screen
         }}
       />
       <Stack.Screen

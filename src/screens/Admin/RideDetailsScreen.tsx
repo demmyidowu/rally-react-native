@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdminScreenProps } from '../../navigation/types';
 import { useAppSelector } from '../../store/hooks';
 import { selectRides, selectLoading } from '../../store/slices/ridesSlice';
-import { Header, Card, StatusBadge, LoadingSpinner } from '../../components';
+import { Card, StatusBadge, LoadingSpinner } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
 type Props = AdminScreenProps<'RideDetails'>;
@@ -28,8 +28,7 @@ const AdminRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (loading && !ride) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="Ride Details" showBack onBack={() => navigation.goBack()} />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <LoadingSpinner />
       </SafeAreaView>
     );
@@ -37,8 +36,7 @@ const AdminRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (!ride) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="Ride Details" showBack onBack={() => navigation.goBack()} />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.notFound}>
           <Text style={styles.notFoundText}>Ride not found</Text>
         </View>
@@ -53,9 +51,7 @@ const AdminRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Ride Details" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Status */}
         <Card style={styles.card}>

@@ -26,6 +26,7 @@ import {
   signOut,
 } from '../../store/slices/authSlice';
 import { resendVerificationEmail } from '../../services/authService';
+import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../components';
 import { colors, spacing, typography } from '../../components/theme';
 import { auth } from '../../config/firebase';
@@ -112,7 +113,7 @@ const EmailVerificationScreen: React.FC<Props> = ({ navigation: _navigation }) =
         {/* Icon */}
         <View style={styles.iconContainer}>
           <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>✉️</Text>
+            <Ionicons name="mail-outline" size={48} color={colors.primary} />
           </View>
         </View>
 
@@ -190,9 +191,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  iconText: {
-    fontSize: 48,
   },
   title: {
     ...typography.h1,

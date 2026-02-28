@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RiderScreenProps } from '../../navigation/types';
 import { useAppSelector } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
-import { Header, Card, Button, LoadingSpinner, Dropdown } from '../../components';
+import { Card, Button, LoadingSpinner, Dropdown } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import { getChaptersForUniversity, getChapterById } from '../../data/chapters';
 import {
@@ -149,8 +149,7 @@ const JoinChapterScreen: React.FC<Props> = ({ navigation }) => {
     if (user?.chapterId) {
         const chapter = getChapterById(user.chapterId);
         return (
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <Header title="Join Chapter" showBack onBack={() => navigation.goBack()} />
+            <SafeAreaView style={styles.container} edges={['bottom']}>
                 <View style={styles.alreadyMemberContainer}>
                     <Text style={styles.alreadyMemberTitle}>You're Already in a Chapter!</Text>
                     <Text style={styles.alreadyMemberText}>
@@ -162,9 +161,7 @@ const JoinChapterScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <Header title="Join a Chapter" showBack onBack={() => navigation.goBack()} />
-
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <View style={styles.content}>
                 {/* Request to Join Section */}
                 <View style={styles.section}>

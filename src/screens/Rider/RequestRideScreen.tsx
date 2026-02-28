@@ -26,11 +26,19 @@ import { RiderScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { requestRide, selectLoading } from '../../store/slices/ridesSlice';
-import { selectActiveEvent, fetchActiveEvent } from '../../store/slices/eventsSlice';
+import {
+  selectAccessibleEvents,
+  fetchAccessibleEvents,
+  selectLoading as selectEventsLoading,
+} from '../../store/slices/eventsSlice';
+import { Event } from '../../models/Event';
 import { locationService } from '../../services/locationService';
 import { createGeoPoint } from '../../services/firestoreService';
-import { Button, Header, Card, AddressAutocomplete } from '../../components';
-import { colors, spacing, typography, borderRadius } from '../../components/theme';
+import { validatePickupLocation, GeofenceValidationResult } from '../../services/geofenceService';
+import { getUniversityIdFromChapterId } from '../../services/chapterService';
+import { Button, Card, AddressAutocomplete } from '../../components';
+import { colors, spacing, typography, borderRadius, shadows, borders } from '../../components/theme';
+import { EmptyState } from '../../components';
 
 type Props = RiderScreenProps<'RequestRide'>;
 
@@ -39,10 +47,14 @@ type LocationMode = 'auto' | 'manual';
 const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
-  const activeEvent = useAppSelector(selectActiveEvent);
+  const accessibleEvents = useAppSelector(selectAccessibleEvents);
   const loading = useAppSelector(selectLoading);
+  const eventsLoading = useAppSelector(selectEventsLoading);
 
   const isEmergency = route.params?.isEmergency ?? false;
+
+  // Selected event state - auto-select if only one available
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Location states
   const [locationMode, setLocationMode] = useState<LocationMode>('auto');
@@ -57,22 +69,60 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
   // Form states
   const [notes, setNotes] = useState('');
 
+  // Geofence validation state
+  const [geofenceResult, setGeofenceResult] = useState<GeofenceValidationResult | null>(null);
+  const [validatingGeofence, setValidatingGeofence] = useState(false);
+
   useEffect(() => {
     captureLocation();
-    // Fetch active event for the rider's chapter so we can link the ride
-    if (user?.chapterId) {
-      console.log('[RequestRide] Fetching active event for chapterId:', user.chapterId);
-      dispatch(fetchActiveEvent(user.chapterId)).then((result) => {
-        console.log('[RequestRide] fetchActiveEvent result:', result.payload);
-      });
-    } else {
-      console.log('[RequestRide] No chapterId, skipping fetchActiveEvent');
+    // Fetch accessible events for this rider based on access rules
+    if (user?.id) {
+      console.log('[RequestRide] Fetching accessible events for user:', user.id, 'chapterId:', user.chapterId);
+      dispatch(fetchAccessibleEvents({ userId: user.id, userChapterId: user.chapterId }));
     }
-  }, [dispatch, user?.chapterId]);
+  }, [dispatch, user?.id, user?.chapterId]);
+
+  /**
+   * Validate pickup location against university geofence
+   */
+  const validateGeofence = async (latitude: number, longitude: number) => {
+    // Get university ID from user's chapter
+    const universityId = user?.chapterId
+      ? getUniversityIdFromChapterId(user.chapterId)
+      : 'ksu';
+
+    setValidatingGeofence(true);
+    try {
+      const result = await validatePickupLocation(
+        { latitude, longitude },
+        universityId
+      );
+      setGeofenceResult(result);
+      return result.isValid;
+    } catch (error) {
+      console.error('Geofence validation error:', error);
+      // On error, allow the request (fail open)
+      setGeofenceResult({ isValid: true });
+      return true;
+    } finally {
+      setValidatingGeofence(false);
+    }
+  };
+
+  // Auto-select event when accessible events are loaded
+  useEffect(() => {
+    if (accessibleEvents.length === 1 && !selectedEvent) {
+      setSelectedEvent(accessibleEvents[0]);
+    } else if (accessibleEvents.length > 1 && !selectedEvent) {
+      // Default to first event if multiple available
+      setSelectedEvent(accessibleEvents[0]);
+    }
+  }, [accessibleEvents, selectedEvent]);
 
   const captureLocation = async () => {
     setLocationStatus('capturing');
     setLocationError(null);
+    setGeofenceResult(null);
 
     try {
       const result = await locationService.captureLocationOnce();
@@ -87,19 +137,26 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
       });
       setLocationStatus('captured');
       setLocationMode('auto');
+
+      // Validate geofence after location capture
+      await validateGeofence(result.coordinate.latitude, result.coordinate.longitude);
     } catch (error: any) {
       setLocationStatus('error');
       setLocationError(error.message || 'Failed to get location. You can enter your address manually.');
     }
   };
 
-  const handleManualAddressSelect = (address: string, latitude: number, longitude: number) => {
+  const handleManualAddressSelect = async (address: string, latitude: number, longitude: number) => {
+    setGeofenceResult(null);
     setCurrentLocation({
       latitude,
       longitude,
       address,
     });
     setLocationStatus('captured');
+
+    // Validate geofence for manually entered address
+    await validateGeofence(latitude, longitude);
   };
 
 
@@ -126,13 +183,18 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
+    if (!selectedEvent) {
+      Alert.alert('No Event Selected', 'Please select an event to request a ride from.');
+      return;
+    }
+
     try {
       console.log('[RequestRide] Submitting ride request with:', {
         riderId: user.id,
         riderChapterId: user.chapterId,
-        activeEventId: activeEvent?.id,
-        activeEventChapterId: activeEvent?.chapterId,
-        hasActiveEvent: !!activeEvent,
+        selectedEventId: selectedEvent.id,
+        selectedEventChapterId: selectedEvent.chapterId,
+        hasSelectedEvent: !!selectedEvent,
       });
 
       await dispatch(requestRide({
@@ -141,8 +203,8 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
         riderPhone: user.phoneNumber || '',
         classYear: user.classYear || 1,
         riderChapterId: user.chapterId,
-        eventId: activeEvent?.id,
-        eventChapterId: activeEvent?.chapterId,
+        eventId: selectedEvent.id,
+        eventChapterId: selectedEvent.chapterId,
         pickupLocation: createGeoPoint(
           currentLocation.latitude,
           currentLocation.longitude
@@ -193,25 +255,61 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
       <View>
         {locationStatus === 'capturing' && (
           <View style={styles.locationStatus}>
-            <Text style={styles.locationStatusText}>📍 Capturing your location...</Text>
+            <View style={styles.locationCapturingRow}>
+              <Ionicons name="locate" size={18} color={colors.info} style={{ marginRight: spacing.xs }} />
+              <Text style={styles.locationStatusText}>Capturing your location...</Text>
+            </View>
           </View>
         )}
 
         {locationStatus === 'captured' && currentLocation && (
-          <View style={styles.locationCaptured}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-            <View style={styles.locationCapturedContent}>
-              <Text style={styles.locationAddress}>{currentLocation.address}</Text>
-              <View style={styles.locationActions}>
-                <TouchableOpacity onPress={captureLocation} style={styles.actionLink}>
-                  <Text style={styles.actionLinkText}>Refresh location</Text>
-                </TouchableOpacity>
-                <Text style={styles.actionDivider}>•</Text>
-                <TouchableOpacity onPress={switchToManualEntry} style={styles.actionLink}>
-                  <Text style={styles.actionLinkText}>Enter different address</Text>
-                </TouchableOpacity>
+          <View>
+            <View style={[
+              styles.locationCaptured,
+              geofenceResult && !geofenceResult.isValid && styles.locationCapturedInvalid
+            ]}>
+              <Ionicons
+                name={geofenceResult && !geofenceResult.isValid ? "warning" : "checkmark-circle"}
+                size={20}
+                color={geofenceResult && !geofenceResult.isValid ? colors.error : colors.success}
+              />
+              <View style={styles.locationCapturedContent}>
+                <Text style={[
+                  styles.locationAddress,
+                  geofenceResult && !geofenceResult.isValid && styles.locationAddressInvalid
+                ]}>
+                  {currentLocation.address}
+                </Text>
+                <View style={styles.locationActions}>
+                  <TouchableOpacity onPress={captureLocation} style={styles.actionLink}>
+                    <Text style={styles.actionLinkText}>Refresh location</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.actionDivider}>•</Text>
+                  <TouchableOpacity onPress={switchToManualEntry} style={styles.actionLink}>
+                    <Text style={styles.actionLinkText}>Enter different address</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
+
+            {/* Geofence validation error */}
+            {geofenceResult && !geofenceResult.isValid && (
+              <View style={styles.geofenceError}>
+                <Ionicons name="alert-circle" size={20} color={colors.error} />
+                <Text style={styles.geofenceErrorText}>
+                  {geofenceResult.errorMessage}
+                </Text>
+              </View>
+            )}
+
+            {/* Geofence validation in progress */}
+            {validatingGeofence && (
+              <View style={styles.geofenceValidating}>
+                <Text style={styles.geofenceValidatingText}>
+                  Verifying service area...
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -248,13 +346,23 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   };
 
+  // Show empty state if no accessible events
+  if (!eventsLoading && accessibleEvents.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <EmptyState
+          icon="calendar-outline"
+          title="No Active Events"
+          message="There are no active events you can request rides from right now. Please check back later."
+          actionTitle="Go Back"
+          onAction={() => navigation.goBack()}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header
-        title={isEmergency ? 'Emergency Ride' : 'Request a Ride'}
-        showBack
-        onBack={() => navigation.goBack()}
-      />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -267,7 +375,9 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
         >
           {isEmergency && (
             <View style={styles.emergencyBanner}>
-              <Text style={styles.emergencyIcon}>🚨</Text>
+              <View style={styles.emergencyIconContainer}>
+                <Ionicons name="alert-circle" size={32} color={colors.error} />
+              </View>
               <View style={styles.emergencyTextContainer}>
                 <Text style={styles.emergencyTitle}>Emergency Ride</Text>
                 <Text style={styles.emergencySubtitle}>
@@ -275,6 +385,48 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
                 </Text>
               </View>
             </View>
+          )}
+
+          {/* Event Selector - show if multiple events available */}
+          {accessibleEvents.length > 1 && (
+            <Card style={styles.eventCard}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="calendar" size={20} color={colors.primary} />
+                <Text style={styles.sectionTitle}>Select Event</Text>
+              </View>
+              <View style={styles.eventSelector}>
+                {accessibleEvents.map((event) => (
+                  <TouchableOpacity
+                    key={event.id}
+                    style={[
+                      styles.eventOption,
+                      selectedEvent?.id === event.id && styles.eventOptionSelected,
+                    ]}
+                    onPress={() => setSelectedEvent(event)}
+                  >
+                    <Text
+                      style={[
+                        styles.eventOptionText,
+                        selectedEvent?.id === event.id && styles.eventOptionTextSelected,
+                      ]}
+                    >
+                      {event.name}
+                    </Text>
+                    {selectedEvent?.id === event.id && (
+                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Card>
+          )}
+
+          {/* Show selected event if only one available */}
+          {accessibleEvents.length === 1 && selectedEvent && (
+            <Card style={styles.selectedEventBadge}>
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+              <Text style={styles.selectedEventText}>{selectedEvent.name}</Text>
+            </Card>
           )}
 
           {/* Pickup Location Section */}
@@ -291,7 +443,9 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.notesSection}>
               <Text style={styles.notesLabel}>Notes (Optional)</Text>
               <View style={styles.notesInputContainer}>
-                <Text style={styles.noteIcon}>📝</Text>
+                <View style={styles.noteIconContainer}>
+                  <Ionicons name="create-outline" size={20} color={colors.primary} />
+                </View>
                 <View style={styles.notesTextAreaWrapper}>
                   <TextInput
                     style={styles.notesTextArea}
@@ -312,8 +466,8 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
           <Button
             title={isEmergency ? 'Request Emergency Ride' : 'Request Ride'}
             onPress={handleSubmit}
-            loading={loading}
-            disabled={loading || !currentLocation}
+            loading={loading || validatingGeofence}
+            disabled={loading || validatingGeofence || !currentLocation || !selectedEvent || (geofenceResult !== null && !geofenceResult.isValid)}
             style={isEmergency ? styles.emergencySubmitButton : styles.submitButton}
           />
 
@@ -351,8 +505,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: colors.error,
   },
-  emergencyIcon: {
-    fontSize: 32,
+  emergencyIconContainer: {
     marginRight: spacing.md,
   },
   emergencyTextContainer: {
@@ -365,6 +518,50 @@ const styles = StyleSheet.create({
   emergencySubtitle: {
     ...typography.caption,
     color: colors.error,
+  },
+  eventCard: {
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  eventSelector: {
+    gap: spacing.sm,
+  },
+  eventOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    backgroundColor: colors.gray[50],
+    borderRadius: borderRadius.md,
+    borderWidth: borders.thin,
+    borderColor: colors.gray[200],
+  },
+  eventOptionSelected: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  eventOptionText: {
+    ...typography.body,
+    color: colors.gray[700],
+    flex: 1,
+  },
+  eventOptionTextSelected: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  selectedEventBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.primaryLight,
+    ...shadows.xs,
+  },
+  selectedEventText: {
+    ...typography.body,
+    color: colors.primary,
+    marginLeft: spacing.sm,
+    fontWeight: '500',
   },
   locationCard: {
     padding: spacing.lg,
@@ -389,10 +586,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.infoLight,
     borderRadius: borderRadius.md,
   },
+  locationCapturingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   locationStatusText: {
     ...typography.body,
     color: colors.info,
-    textAlign: 'center',
   },
   locationCaptured: {
     flexDirection: 'row',
@@ -400,6 +601,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successLight,
     borderRadius: borderRadius.md,
     padding: spacing.md,
+  },
+  locationCapturedInvalid: {
+    backgroundColor: colors.errorLight,
   },
   locationCapturedContent: {
     flex: 1,
@@ -410,6 +614,9 @@ const styles = StyleSheet.create({
     color: colors.success,
     flex: 1,
     marginLeft: spacing.sm,
+  },
+  locationAddressInvalid: {
+    color: colors.error,
   },
   locationActions: {
     flexDirection: 'row',
@@ -523,10 +730,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  noteIcon: {
-    fontSize: 20,
+  noteIconContainer: {
     marginRight: spacing.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   notesTextAreaWrapper: {
     flex: 1,
@@ -553,6 +759,32 @@ const styles = StyleSheet.create({
     color: colors.gray[400],
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  geofenceError: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.errorLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.error,
+  },
+  geofenceErrorText: {
+    ...typography.body,
+    color: colors.error,
+    flex: 1,
+    marginLeft: spacing.sm,
+    lineHeight: 20,
+  },
+  geofenceValidating: {
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+  },
+  geofenceValidatingText: {
+    ...typography.caption,
+    color: colors.gray[500],
   },
 });
 

@@ -61,9 +61,12 @@ export const spacing = {
 };
 
 export const borderRadius = {
+  xs: 2,
   sm: 4,
   md: 8,
   lg: 12,
+  xl: 16,
+  xxl: 24,
   full: 9999,
 };
 
@@ -77,25 +80,66 @@ export const typography = {
 };
 
 export const shadows = {
-  sm: {
-    shadowColor: colors.black,
+  xs: {
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.08,
     shadowRadius: 1.0,
     elevation: 1,
   },
-  md: {
-    shadowColor: colors.black,
+  sm: {
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.23,
-    shadowRadius: 2.62,
+    shadowOpacity: 0.1,
+    shadowRadius: 2.0,
+    elevation: 2,
+  },
+  md: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4.0,
     elevation: 4,
   },
   lg: {
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.30,
-    shadowRadius: 4.65,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8.0,
     elevation: 8,
   },
+  xl: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12.0,
+    elevation: 12,
+  },
+};
+
+// Animation timing constants
+export const animations = {
+  fast: 150,
+  normal: 250,
+  slow: 400,
+  spring: {
+    damping: 15,
+    stiffness: 150,
+    mass: 1,
+  },
+  buttonPress: {
+    scale: 0.97,
+    duration: 100,
+  },
+  cardPress: {
+    scale: 0.98,
+    duration: 100,
+  },
+};
+
+// Border width constants
+export const borders = {
+  thin: 1,
+  medium: 2,
+  thick: 3,
 };

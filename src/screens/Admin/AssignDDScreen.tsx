@@ -19,7 +19,7 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { selectEvents, fetchAllEvents, selectLoading } from '../../store/slices/eventsSlice';
 import { Event } from '../../models/Event';
-import { Header, Card, Button, EmptyState, LoadingSpinner, StatusBadge } from '../../components';
+import { Card, Button, EmptyState, LoadingSpinner, StatusBadge } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import { doc, updateDoc, arrayUnion, addDoc, collection, query, where, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -176,9 +176,7 @@ const AssignDDScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Assign to Event" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* DD Info */}
       <View style={styles.ddInfoContainer}>
         <Text style={styles.ddInfoLabel}>Assigning:</Text>

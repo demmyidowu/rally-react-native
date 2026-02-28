@@ -30,6 +30,7 @@ export const AdminNavigator: React.FC = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: true,
+        headerBackTitle: '',
         headerStyle: {
           backgroundColor: '#7B68A8', // Lavender purple
         },
@@ -44,8 +45,7 @@ export const AdminNavigator: React.FC = () => {
         name="AdminDashboard"
         component={AdminDashboardScreen}
         options={{
-          title: 'Admin Dashboard',
-          headerLeft: () => null, // No back button on main dashboard
+          headerShown: false, // Custom greeting header in screen
         }}
       />
       <Stack.Screen

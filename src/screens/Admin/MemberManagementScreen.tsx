@@ -20,7 +20,7 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { selectActiveEvent, fetchActiveEvent } from '../../store/slices/eventsSlice';
 import { selectAssignments, fetchDDAssignments } from '../../store/slices/ddAssignmentsSlice';
-import { Header, Card, EmptyState, LoadingSpinner, Input } from '../../components';
+import { Card, EmptyState, LoadingSpinner, Input } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -234,9 +234,7 @@ const MemberManagementScreen: React.FC<Props> = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Members" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Search */}
       <View style={styles.searchContainer}>
         <Input

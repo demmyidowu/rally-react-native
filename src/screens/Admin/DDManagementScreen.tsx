@@ -20,7 +20,7 @@ import { selectUser } from '../../store/slices/authSlice';
 import { selectActiveEvent, fetchActiveEvent } from '../../store/slices/eventsSlice';
 import { selectAssignments, fetchDDAssignments } from '../../store/slices/ddAssignmentsSlice';
 import { DDAssignment } from '../../models/DDAssignment';
-import { Header, Card, Button, EmptyState, LoadingSpinner, Input } from '../../components';
+import { Card, Button, EmptyState, LoadingSpinner, Input } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
 type Props = AdminScreenProps<'DDManagement'>;
@@ -103,8 +103,7 @@ const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
   // No active event - show empty state with navigation to Event Management
   if (!loading && !activeEvent) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="DD Management" showBack onBack={() => navigation.goBack()} />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.emptyContainer}>
           <EmptyState
             icon="calendar-outline"
@@ -124,9 +123,7 @@ const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="DD Management" showBack onBack={() => navigation.goBack()} />
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Event Info */}
       {activeEvent && (
         <View style={styles.eventBanner}>
