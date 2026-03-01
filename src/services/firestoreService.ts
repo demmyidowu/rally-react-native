@@ -165,11 +165,12 @@ const convertTimestampsToISO = (data: any): any => {
     return data.map(item => convertTimestampsToISO(item));
   }
 
-  // Handle objects (but not GeoPoint which should stay as-is)
+  // Handle objects (convert GeoPoint to plain serializable object)
   if (typeof data === 'object' && data !== null) {
-    // Skip GeoPoint objects (they have latitude and longitude properties)
-    if ('latitude' in data && 'longitude' in data && Object.keys(data).length === 2) {
-      return data;
+    // Convert GeoPoint-like objects (Firebase GeoPoint has extra internal metadata
+    // beyond latitude/longitude, so Object.keys check would fail — check types instead)
+    if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+      return { latitude: data.latitude, longitude: data.longitude };
     }
 
     const result: any = {};

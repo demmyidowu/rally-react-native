@@ -58,7 +58,9 @@ function AppContent() {
   useEffect(() => {
     // Set up push notifications when user is authenticated
     if (user?.id) {
-      registerForPushNotifications(user.id);
+      registerForPushNotifications(user.id).then(token => {
+        if (token) console.log('📲 Push token (for testing):', token);
+      });
     }
 
     // Set up notification listeners with navigation ref

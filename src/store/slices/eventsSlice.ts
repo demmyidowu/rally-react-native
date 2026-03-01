@@ -177,16 +177,16 @@ export const fetchAccessibleEvents = createAsyncThunk(
   ) => {
     try {
       // Query both ACTIVE and SCHEDULED events (for early access)
+      // Note: orderBy is omitted to avoid requiring a composite index on (status, startTime).
+      // Results are sorted client-side instead.
       const activeQuery = query(
         collection(db, 'events'),
-        where('status', '==', EventStatus.ACTIVE),
-        orderBy('startTime', 'desc')
+        where('status', '==', EventStatus.ACTIVE)
       );
 
       const scheduledQuery = query(
         collection(db, 'events'),
-        where('status', '==', EventStatus.SCHEDULED),
-        orderBy('startTime', 'desc')
+        where('status', '==', EventStatus.SCHEDULED)
       );
 
       // Fetch both queries in parallel
@@ -195,13 +195,13 @@ export const fetchAccessibleEvents = createAsyncThunk(
         getDocs(scheduledQuery),
       ]);
 
-      const allActiveEvents = activeSnapshot.docs.map((doc) =>
-        convertEventDocToEvent(doc.id, doc.data() as EventDocument)
-      );
+      const allActiveEvents = activeSnapshot.docs
+        .map((doc) => convertEventDocToEvent(doc.id, doc.data() as EventDocument))
+        .sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
 
-      const allScheduledEvents = scheduledSnapshot.docs.map((doc) =>
-        convertEventDocToEvent(doc.id, doc.data() as EventDocument)
-      );
+      const allScheduledEvents = scheduledSnapshot.docs
+        .map((doc) => convertEventDocToEvent(doc.id, doc.data() as EventDocument))
+        .sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
 
       // Filter SCHEDULED events to only include those in early access window
       const earlyAccessEvents = allScheduledEvents.filter((event) =>

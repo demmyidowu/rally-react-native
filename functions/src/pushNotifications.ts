@@ -15,7 +15,6 @@ import * as logger from "firebase-functions/logger";
 import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getApps, initializeApp } from "firebase-admin/app";
-import { getMessaging } from "firebase-admin/messaging";
 import { defineSecret } from "firebase-functions/params";
 
 // Initialize Firebase Admin
@@ -24,7 +23,6 @@ if (getApps().length === 0) {
 }
 
 const db = getFirestore();
-const messaging = getMessaging();
 
 // Define the secret for Google Maps API
 const googleMapsApiKey = defineSecret("GOOGLE_PLACES_API_KEY");
@@ -70,8 +68,11 @@ async function calculateDrivingETA(
 }
 
 /**
- * Send push notification to a user
- * Configured for background/lock screen delivery
+ * Send push notification to a user via Expo Push API.
+ *
+ * The app stores an Expo push token (ExponentPushToken[...]) in users/{userId}.fcmToken.
+ * Firebase Admin SDK messaging.send() only works with raw FCM tokens, not Expo tokens —
+ * Expo tokens must be routed through Expo's push service at exp.host.
  */
 async function sendPushNotification(
   userId: string,
@@ -88,37 +89,32 @@ async function sendPushNotification(
       return false;
     }
 
-    const message = {
-      notification: {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: userData.fcmToken,
+        sound: "default",
         title,
         body,
-      },
-      data: data || {},
-      token: userData.fcmToken,
-      android: {
-        priority: "high" as const,
-        notification: {
-          channelId: "rides",
-          sound: "default",
-          priority: "high" as const,
-        },
-      },
-      apns: {
-        headers: {
-          "apns-priority": "10", // High priority for immediate delivery
-        },
-        payload: {
-          aps: {
-            badge: 1,
-            sound: "default",
-            "content-available": 1, // Background notification
-          },
-        },
-      },
-    };
+        data: data || {},
+        badge: 1,
+        priority: "high",
+        channelId: "rides",
+      }),
+    });
 
-    await messaging.send(message);
-    logger.info("Push notification sent", { userId, title });
+    const result = await response.json();
+
+    if (result.data?.status === "error") {
+      logger.error("Expo push failed", { userId, error: result.data.message });
+      return false;
+    }
+
+    logger.info("Push notification sent via Expo", { userId, title });
     return true;
   } catch (error: any) {
     logger.error("Failed to send push notification", {

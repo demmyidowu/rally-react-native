@@ -125,6 +125,34 @@
             ]
         },
         {
+            "collectionGroup": "events",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "status",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "startTime",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "adminAlerts",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "chapterId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
             "collectionGroup": "adminAlerts",
             "queryScope": "COLLECTION",
             "fields": [

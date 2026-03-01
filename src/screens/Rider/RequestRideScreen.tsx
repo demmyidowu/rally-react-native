@@ -74,7 +74,30 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
   const [validatingGeofence, setValidatingGeofence] = useState(false);
 
   useEffect(() => {
-    captureLocation();
+    const initLocation = async () => {
+      // Check current permission status before attempting to capture
+      const status = await locationService.getLocationPermissionStatus();
+
+      if (status === 'undetermined') {
+        // Show the OS permission dialog
+        const result = await locationService.requestLocationPermission();
+        if (!result.granted) {
+          setLocationStatus('error');
+          setLocationError('Location permission denied. Enter your address below.');
+          return;
+        }
+      } else if (status === 'denied') {
+        // User previously denied — direct them to manual entry
+        setLocationStatus('error');
+        setLocationError('Location access is disabled. Enter your address below.');
+        return;
+      }
+
+      // Permission granted — proceed with capture
+      captureLocation();
+    };
+
+    initLocation();
     // Fetch accessible events for this rider based on access rules
     if (user?.id) {
       console.log('[RequestRide] Fetching accessible events for user:', user.id, 'chapterId:', user.chapterId);

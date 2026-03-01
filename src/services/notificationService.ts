@@ -114,7 +114,6 @@ Notifications.setNotificationHandler({
     // Emergency alerts should always show, even in foreground
     if (notifData.type === NotificationType.EMERGENCY_ALERT) {
       return {
-        shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
         shouldShowBanner: true,
@@ -125,7 +124,6 @@ Notifications.setNotificationHandler({
     // Other notifications can be shown based on preference
     // For now, show all notifications in foreground
     return {
-      shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
       shouldShowBanner: true,
@@ -602,7 +600,6 @@ class NotificationService {
         // Emergency alerts should always show, even in foreground
         if (notifData.type === NotificationType.EMERGENCY_ALERT) {
           return {
-            shouldShowAlert: true,
             shouldPlaySound: true,
             shouldSetBadge: true,
             shouldShowBanner: true,
@@ -612,7 +609,6 @@ class NotificationService {
 
         // Other notifications can be shown based on preference
         return {
-          shouldShowAlert: true,
           shouldPlaySound: true,
           shouldSetBadge: false,
           shouldShowBanner: true,

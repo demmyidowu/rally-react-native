@@ -54,6 +54,14 @@ export const store = configureStore({
       serializableCheck: {
         // Ignore redux-persist actions
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+        // Ignore GeoPoint locations in action payloads (belt-and-suspenders for thunks
+        // that may dispatch GeoPoints in meta.arg before Firestore conversion occurs)
+        ignoredActionPaths: [
+          'payload.pickupLocation',
+          'payload.dropoffLocation',
+          'meta.arg.pickupLocation',
+          'meta.arg.dropoffLocation',
+        ],
         // Ignore Date objects in state (we'll handle serialization manually if needed)
         ignoredPaths: [
           'auth.user.createdAt',

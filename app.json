@@ -66,7 +66,8 @@
           "color": "#7B68A8"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withModularHeaders"
     ],
     "extra": {
       "eas": {
