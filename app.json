@@ -22,6 +22,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.RallyRideios.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "RallyRide needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "RallyRide needs your location to calculate accurate pickup locations and ETAs for designated driver rides.",
@@ -34,6 +35,7 @@
     },
     "android": {
       "package": "com.RallyRide.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#7B68A8"
