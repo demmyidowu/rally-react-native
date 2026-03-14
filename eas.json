@@ -15,6 +15,10 @@
             },
             "env": {
                 "APP_ENV": "development"
+            },
+            "secretFiles": {
+                "GoogleService-Info.plist": "GOOGLE_SERVICE_INFO_PLIST",
+                "google-services.json": "GOOGLE_SERVICES_JSON"
             }
         },
         "preview": {
@@ -27,6 +31,10 @@
             },
             "env": {
                 "APP_ENV": "preview"
+            },
+            "secretFiles": {
+                "GoogleService-Info.plist": "GOOGLE_SERVICE_INFO_PLIST",
+                "google-services.json": "GOOGLE_SERVICES_JSON"
             }
         },
         "production": {
@@ -37,7 +45,11 @@
             "env": {
                 "APP_ENV": "production"
             },
-            "autoIncrement": true
+            "autoIncrement": true,
+            "secretFiles": {
+                "GoogleService-Info.plist": "GOOGLE_SERVICE_INFO_PLIST",
+                "google-services.json": "GOOGLE_SERVICES_JSON"
+            }
         }
     },
     "submit": {
