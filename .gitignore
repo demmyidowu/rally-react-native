@@ -51,6 +51,12 @@ firebase-debug.*.log
 .firebaserc
 ui-debug.log
 
+# Google Services (contains API keys — upload to EAS Secrets instead)
+google-services.json
+GoogleService-Info.plist
+
+# Store submission credentials
+google-play-service-account.json
 
 # Scripts with secrets
 scripts/
