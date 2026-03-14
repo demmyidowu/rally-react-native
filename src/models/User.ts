@@ -21,9 +21,6 @@ export interface User {
   /** Email address - Must be .edu domain */
   email: string;
 
-  /** Phone number in E.164 format: +15551234567 */
-  phoneNumber: string;
-
   /** Reference to the user's university */
   universityId?: string;
 
@@ -47,6 +44,12 @@ export interface User {
 
   /** Firebase Cloud Messaging token for push notifications */
   fcmToken?: string;
+
+  /** Whether push notifications are enabled for this user (default true) */
+  notificationsEnabled?: boolean;
+
+  /** Whether the user has completed the onboarding walkthrough */
+  onboardingComplete?: boolean;
 
   // DD-specific fields
   /** Car color (required for DDs before going active) */
@@ -120,26 +123,3 @@ export const getUserRoleDisplayName = (role: UserRole): string => {
   }
 };
 
-/**
- * Format phone number to E.164 format (+1XXXXXXXXXX)
- */
-export const formatPhoneNumber = (phone: string): string => {
-  // Remove all non-digit characters
-  const digits = phone.replace(/\D/g, '');
-
-  // If starts with 1, it's already formatted
-  if (digits.startsWith('1')) {
-    return `+${digits}`;
-  }
-
-  // Add US country code
-  return `+1${digits}`;
-};
-
-/**
- * Validate phone number format (E.164)
- */
-export const isValidPhoneNumber = (phone: string): boolean => {
-  const formatted = formatPhoneNumber(phone);
-  return formatted.startsWith('+1') && formatted.length === 12;
-};

@@ -10,6 +10,7 @@ import * as logger from "firebase-functions/logger";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
@@ -321,8 +322,30 @@ async function checkProlongedInactivity(
       inactiveMinutes: Math.round(inactiveMinutes),
     });
 
-    // TODO: Send push notification to DD
-    // Placeholder for future FCM implementation
+    // Send push notification to DD
+    const userDoc = await db.collection("users").doc(ddId).get();
+    const fcmToken = userDoc.data()?.fcmToken;
+    if (fcmToken) {
+      try {
+        await getMessaging().send({
+          token: fcmToken,
+          notification: {
+            title: "You've been marked inactive",
+            body: "You have been inactive for 15+ minutes. Please update your status.",
+          },
+          data: {
+            type: "dd_inactivity",
+            eventId,
+          },
+        });
+        logger.info("Inactivity push sent to DD", {ddId});
+      } catch (err: any) {
+        logger.error("Failed to send inactivity push to DD", {
+          ddId,
+          error: err.message,
+        });
+      }
+    }
   }
 }
 

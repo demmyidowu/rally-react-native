@@ -7,7 +7,6 @@
  * CRITICAL SECURITY RULES:
  * - MUST enforce @ksu.edu email domain
  * - MUST send email verification after signup
- * - MUST validate phone number format (E.164: +1XXXXXXXXXX)
  * - Default role MUST be 'member' (only admins can promote)
  * - MUST check email verification before allowing full access
  *
@@ -31,8 +30,9 @@ import {
   UserCredential,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import crashlytics from '@react-native-firebase/crashlytics';
 import { auth, db } from '../config/firebase';
-import { User, UserRole, isEduEmail, formatPhoneNumber, isValidPhoneNumber } from '../models/User';
+import { User, UserRole, isEduEmail } from '../models/User';
 import { AuthError } from '../types/errors';
 
 /**
@@ -50,7 +50,6 @@ export interface SignUpData {
   email: string;
   password: string;
   name: string;
-  phoneNumber?: string; // Optional - push notifications replaced SMS
   chapterId?: string;
   classYear: number;
   adminCode?: string; // Optional admin code for chapter admin self-registration
@@ -88,11 +87,10 @@ export type AuthStateCallback = (state: AuthState, user: User | null) => void;
  * Steps:
  * 1. Validate KSU email (@ksu.edu)
  * 2. Validate password strength (8+ chars, uppercase, lowercase, number)
- * 3. Validate phone number format (E.164)
- * 4. Create Firebase Auth user
- * 5. Update display name
- * 6. Send email verification
- * 7. Create Firestore user document with server timestamps
+ * 3. Create Firebase Auth user
+ * 4. Update display name
+ * 5. Send email verification
+ * 6. Create Firestore user document with server timestamps
  *
  * @param userData User registration data
  * @returns Auth result with user ID and user data
@@ -101,7 +99,7 @@ export type AuthStateCallback = (state: AuthState, user: User | null) => void;
  * CRITICAL: Enforces @ksu.edu email domain and strong password requirements
  */
 export async function signUp(userData: SignUpData): Promise<AuthResult> {
-  const { email, password, name, phoneNumber, chapterId, classYear, adminCode } = userData;
+  const { email, password, name, chapterId, classYear, adminCode } = userData;
 
   try {
     // Validate KSU email
@@ -113,15 +111,6 @@ export async function signUp(userData: SignUpData): Promise<AuthResult> {
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
       throw new AuthError(passwordValidation.errors[0], 'WEAK_PASSWORD');
-    }
-
-    // Validate and format phone number if provided
-    let formattedPhone = '';
-    if (phoneNumber && phoneNumber.trim()) {
-      formattedPhone = formatPhoneNumber(phoneNumber);
-      if (!isValidPhoneNumber(phoneNumber)) {
-        throw AuthError.INVALID_PHONE_NUMBER;
-      }
     }
 
     // Create Firebase Auth user
@@ -147,7 +136,6 @@ export async function signUp(userData: SignUpData): Promise<AuthResult> {
       id: userCredential.user.uid,
       name: name.trim(),
       email: email.toLowerCase(),
-      phoneNumber: formattedPhone,
       chapterId: chapterId || '',
       role: userRole,
       classYear: classYear,
@@ -233,7 +221,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
       user.isEmailVerified = true;
     }
 
-    console.log('✅ User signed in successfully:', user.email);
+    crashlytics().setUserId(user.id);
 
     return {
       userId: userCredential.user.uid,
@@ -410,7 +398,6 @@ export function onAuthStateChange(callback: AuthStateCallback): () => void {
           id: firebaseUser.uid,
           name: firebaseUser.displayName || '',
           email: firebaseUser.email || '',
-          phoneNumber: '',
           chapterId: '',
           role: UserRole.MEMBER,
           classYear: new Date().getFullYear(),
@@ -499,18 +486,6 @@ export function validatePassword(password: string): PasswordValidation {
  */
 export function validateKSUEmail(email: string): boolean {
   return isEduEmail(email);
-}
-
-/**
- * Validate E.164 phone number format
- *
- * Expected format: +1XXXXXXXXXX (12 characters total)
- *
- * @param phoneNumber Phone number to validate
- * @returns true if valid E.164 format
- */
-export function validatePhoneNumber(phoneNumber: string): boolean {
-  return isValidPhoneNumber(phoneNumber);
 }
 
 // MARK: - Session Management Utilities
@@ -651,7 +626,6 @@ async function loadUser(uid: string): Promise<User> {
     id: userDoc.id,
     name: data.name,
     email: data.email,
-    phoneNumber: data.phoneNumber,
     chapterId: data.chapterId,
     role: data.role as UserRole,
     classYear: data.classYear,

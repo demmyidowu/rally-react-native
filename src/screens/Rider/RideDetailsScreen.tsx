@@ -10,14 +10,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Linking,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RiderScreenProps } from '../../navigation/types';
 import { useAppSelector } from '../../store/hooks';
 import { selectRides, selectLoading } from '../../store/slices/ridesSlice';
-import { Card, StatusBadge, Button, LoadingSpinner } from '../../components';
+import { Card, StatusBadge, LoadingSpinner } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
 type Props = RiderScreenProps<'RideDetails'>;
@@ -27,22 +25,6 @@ const RideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   const rides = useAppSelector(selectRides);
   const loading = useAppSelector(selectLoading);
   const ride = rides.find(r => r.id === rideId);
-
-  const handleCallDD = () => {
-    if (ride?.ddPhone) {
-      Linking.openURL(`tel:${ride.ddPhone}`);
-    } else {
-      Alert.alert('Unavailable', 'DD phone number is not available.');
-    }
-  };
-
-  const handleTextDD = () => {
-    if (ride?.ddPhone) {
-      Linking.openURL(`sms:${ride.ddPhone}`);
-    } else {
-      Alert.alert('Unavailable', 'DD phone number is not available.');
-    }
-  };
 
   if (loading && !ride) {
     return (
@@ -105,21 +87,6 @@ const RideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                 )}
               </View>
             </View>
-            {(ride.status === 'assigned' || ride.status === 'enroute') && (
-              <View style={styles.ddActions}>
-                <Button
-                  title="Call"
-                  onPress={handleCallDD}
-                  style={styles.ddActionButton}
-                />
-                <Button
-                  title="Text"
-                  variant="secondary"
-                  onPress={handleTextDD}
-                  style={styles.ddActionButton}
-                />
-              </View>
-            )}
           </Card>
         )}
 
@@ -253,13 +220,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.gray[500],
     marginTop: spacing.xs,
-  },
-  ddActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  ddActionButton: {
-    flex: 1,
   },
   detailsCard: {
     padding: spacing.lg,

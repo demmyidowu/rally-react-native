@@ -19,6 +19,7 @@ import { RootState } from '../store/store';
 // Import navigators
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import OnboardingScreen from '../screens/Auth/OnboardingScreen';
 
 // Import types
 import { RootStackParamList } from './types';
@@ -42,6 +43,9 @@ export const AppNavigator: React.FC = () => {
   // Get auth state from Redux
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const isLoading = useSelector((state: RootState) => state.auth.isLoading);
+  const onboardingComplete = useSelector(
+    (state: RootState) => state.auth.user?.onboardingComplete ?? false
+  );
 
   // Show loading screen while checking authentication
   if (isLoading) {
@@ -67,6 +71,13 @@ export const AppNavigator: React.FC = () => {
             options={{
               animationTypeForReplace: 'pop', // Pop animation when logging out
             }}
+          />
+        ) : !onboardingComplete ? (
+          // Onboarding - shown once after first login
+          <Stack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{ animationTypeForReplace: 'push' }}
           />
         ) : (
           // Main Stack - Show main app

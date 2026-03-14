@@ -8,7 +8,6 @@ Cross-platform mobile app for managing designated drivers for K-State fraterniti
 - **State Management**: Redux Toolkit
 - **Navigation**: React Navigation v6
 - **Backend**: Firebase (Firestore, Cloud Functions, Authentication)
-- **SMS**: Twilio
 - **Location**: expo-location
 - **Push Notifications**: expo-notifications
 - **Maps**: Google Maps API (for ETA)
@@ -58,7 +57,7 @@ rally-react-native/
 ## Key Features (Same as Swift version)
 1. **Admin Dashboard**: DD assignment, event management, member management
 2. **Ride Request System**: Smart queue with priority algorithm
-3. **SMS Notifications**: Twilio integration for ride updates
+3. **Push Notifications**: Firebase Cloud Messaging for ride updates
 4. **Automatic Year Transitions**: Scheduled task on Aug 1
 5. **KSU Email Verification**: Enforce @ksu.edu domain
 6. **Emergency Button**: Immediate priority with admin alerts
@@ -83,10 +82,6 @@ Assign to DD with **shortest wait time**:
 - **One-time only** when rider requests ride
 - **One-time only** when DD marks "en route"
 - **No background tracking**
-
-### SMS Triggers (UNCHANGED)
-1. Ride assigned → SMS to DD
-2. DD en route → SMS to rider with ETA
 
 ## Migration Notes
 

@@ -11,7 +11,7 @@ import {
   resendVerificationEmail,
 } from '../authService';
 import { AuthError } from '../../types/errors';
-import { isKSUEmail, formatPhoneNumber, isValidPhoneNumber } from '../../models/User';
+import { isKSUEmail } from '../../models/User';
 
 // Mock Firebase
 jest.mock('../../config/firebase', () => ({
@@ -69,44 +69,6 @@ describe('Email Validation', () => {
   });
 });
 
-describe('Phone Number Validation', () => {
-  describe('formatPhoneNumber', () => {
-    it('should format 10-digit phone numbers', () => {
-      expect(formatPhoneNumber('5551234567')).toBe('+15551234567');
-      expect(formatPhoneNumber('1234567890')).toBe('+11234567890');
-    });
-
-    it('should handle phone numbers with country code', () => {
-      expect(formatPhoneNumber('15551234567')).toBe('+15551234567');
-      expect(formatPhoneNumber('+15551234567')).toBe('+15551234567');
-    });
-
-    it('should handle formatted phone numbers', () => {
-      expect(formatPhoneNumber('(555) 123-4567')).toBe('+15551234567');
-      expect(formatPhoneNumber('555-123-4567')).toBe('+15551234567');
-      expect(formatPhoneNumber('555.123.4567')).toBe('+15551234567');
-    });
-  });
-
-  describe('isValidPhoneNumber', () => {
-    it('should accept valid 10-digit phone numbers', () => {
-      expect(isValidPhoneNumber('5551234567')).toBe(true);
-      expect(isValidPhoneNumber('1234567890')).toBe(true);
-    });
-
-    it('should accept formatted phone numbers', () => {
-      expect(isValidPhoneNumber('(555) 123-4567')).toBe(true);
-      expect(isValidPhoneNumber('555-123-4567')).toBe(true);
-    });
-
-    it('should reject invalid phone numbers', () => {
-      expect(isValidPhoneNumber('555123')).toBe(false); // Too short
-      expect(isValidPhoneNumber('555123456789')).toBe(false); // Too long
-      expect(isValidPhoneNumber('')).toBe(false);
-    });
-  });
-});
-
 describe('Sign Up Validation', () => {
   it('should reject non-KSU emails during sign up', async () => {
     await expect(
@@ -114,25 +76,12 @@ describe('Sign Up Validation', () => {
         email: 'student@gmail.com',
         password: 'Password123',
         name: 'John Doe',
-        phoneNumber: '5551234567',
         classYear: 4,
         chapterId: 'test-chapter',
       })
     ).rejects.toThrow(AuthError.EMAIL_NOT_KSU);
   });
 
-  it('should reject invalid phone numbers during sign up', async () => {
-    await expect(
-      signUp({
-        email: 'student@ksu.edu',
-        password: 'Password123',
-        name: 'John Doe',
-        phoneNumber: '555123',
-        classYear: 4,
-        chapterId: 'test-chapter',
-      })
-    ).rejects.toThrow(AuthError.INVALID_PHONE_NUMBER);
-  });
 });
 
 describe('Error Messages', () => {
@@ -190,7 +139,6 @@ describe.skip('Integration Tests (requires Firebase emulator)', () => {
     email: 'test@ksu.edu',
     password: 'TestPassword123',
     name: 'Test User',
-    phoneNumber: '5551234567',
     classYear: 4,
     chapterId: 'test-chapter',
   };
@@ -204,7 +152,6 @@ describe.skip('Integration Tests (requires Firebase emulator)', () => {
 
     expect(result.user.email).toBe(testUserData.email.toLowerCase());
     expect(result.user.name).toBe(testUserData.name);
-    expect(result.user.phoneNumber).toBe('+15551234567');
     expect(result.user.role).toBe('member');
     expect(result.user.isEmailVerified).toBe(false);
   });

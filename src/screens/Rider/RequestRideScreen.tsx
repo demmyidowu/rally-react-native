@@ -223,7 +223,6 @@ const RequestRideScreen: React.FC<Props> = ({ navigation, route }) => {
       await dispatch(requestRide({
         riderId: user.id,
         riderName: user.name,
-        riderPhone: user.phoneNumber || '',
         classYear: user.classYear || 1,
         riderChapterId: user.chapterId,
         eventId: selectedEvent.id,

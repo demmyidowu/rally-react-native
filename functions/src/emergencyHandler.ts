@@ -9,6 +9,7 @@ import * as logger from "firebase-functions/logger";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getFirestore, FieldValue} from "firebase-admin/firestore";
+import {getMessaging} from "firebase-admin/messaging";
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
@@ -142,43 +143,54 @@ async function notifyChapterAdmins(
       adminCount: adminsSnapshot.size,
     });
 
-    // TODO: Implement FCM push notifications
-    // For now, we just log the intent
-    // Future implementation:
-    // - Get FCM tokens from admin user documents
-    // - Send high-priority push notification
-    // - Include ride details and deep link to ride view
+    const messaging = getMessaging();
+    const sendPromises: Promise<void>[] = [];
 
-    /*
     for (const adminDoc of adminsSnapshot.docs) {
       const admin = adminDoc.data();
-      if (admin.fcmToken) {
-        await admin.messaging().send({
+      if (!admin.fcmToken) continue;
+
+      const sendPromise = messaging
+        .send({
           token: admin.fcmToken,
           notification: {
-            title: '🚨 EMERGENCY RIDE REQUEST',
-            body: `${riderName} needs immediate pickup`
+            title: "🚨 EMERGENCY RIDE REQUEST",
+            body: `${_riderName} needs immediate pickup`,
           },
           data: {
             rideId,
-            type: 'emergency',
-            priority: 'high'
+            type: "emergency",
+            priority: "high",
           },
           apns: {
             payload: {
               aps: {
-                sound: 'emergency.caf',
+                sound: "default",
                 badge: 1,
-                'content-available': 1
-              }
-            }
-          }
+                contentAvailable: true,
+              },
+            },
+          },
+          android: {
+            priority: "high",
+          },
+        })
+        .then(() => {
+          logger.info("Emergency push sent to admin", {adminId: adminDoc.id});
+        })
+        .catch((err: any) => {
+          logger.error("Failed to send emergency push to admin", {
+            adminId: adminDoc.id,
+            error: err.message,
+          });
         });
-      }
-    }
-    */
 
-    logger.info("Admin notification placeholder executed", {
+      sendPromises.push(sendPromise);
+    }
+
+    await Promise.all(sendPromises);
+
+    logger.info("Emergency admin push notifications dispatched", {
       chapterId,
       rideId,
       adminCount: adminsSnapshot.size,

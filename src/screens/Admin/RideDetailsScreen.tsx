@@ -73,10 +73,6 @@ const AdminRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={styles.label}>Name</Text>
             <Text style={styles.value}>{ride.riderName || 'N/A'}</Text>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Phone</Text>
-            <Text style={styles.value}>{ride.riderPhone || 'N/A'}</Text>
-          </View>
         </Card>
 
         {/* DD Info */}

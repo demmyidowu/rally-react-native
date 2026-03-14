@@ -230,6 +230,25 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     )}
                 </Card>
 
+                {/* Quick Links */}
+                <Card style={styles.card}>
+                    <TouchableOpacity
+                        style={styles.navRow}
+                        onPress={() => navigation.navigate('Help')}
+                    >
+                        <Text style={styles.navRowText}>Help & Support</Text>
+                        <Text style={styles.navRowChevron}>›</Text>
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                    <TouchableOpacity
+                        style={styles.navRow}
+                        onPress={() => navigation.navigate('Settings')}
+                    >
+                        <Text style={styles.navRowText}>Settings</Text>
+                        <Text style={styles.navRowChevron}>›</Text>
+                    </TouchableOpacity>
+                </Card>
+
                 {/* Actions */}
                 <View style={styles.actionsSection}>
                     <Button
@@ -374,6 +393,20 @@ const styles = StyleSheet.create({
         ...typography.body,
         color: colors.warning,
         fontWeight: '500',
+    },
+    navRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: spacing.md,
+    },
+    navRowText: {
+        ...typography.body,
+        color: colors.gray[800],
+    },
+    navRowChevron: {
+        fontSize: 20,
+        color: colors.gray[400],
     },
     actionsSection: {
         marginTop: spacing.md,

@@ -19,6 +19,7 @@ export type AuthStackParamList = {
     email: string;
     password: string;
   };
+  Onboarding: undefined;
 };
 
 export type AuthScreenNavigationProp<T extends keyof AuthStackParamList> =
@@ -82,6 +83,8 @@ export type DDStackParamList = {
   };
   CarSettings: undefined;
   Profile: undefined;
+  Help: undefined;
+  Settings: undefined;
 };
 
 export type DDScreenNavigationProp<T extends keyof DDStackParamList> =
@@ -104,6 +107,8 @@ export type RiderStackParamList = {
   QueueStatus: undefined;
   JoinChapter: undefined;
   Profile: undefined;
+  Help: undefined;
+  Settings: undefined;
 };
 
 export type RiderScreenNavigationProp<T extends keyof RiderStackParamList> =
@@ -118,6 +123,7 @@ export type RiderScreenRouteProp<T extends keyof RiderStackParamList> =
 
 export type RootStackParamList = {
   Auth: undefined;
+  Onboarding: undefined;
   Main: undefined;
   // Global modals that can be accessed from anywhere
   EmergencyRide: undefined;

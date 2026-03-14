@@ -242,7 +242,6 @@ export const autoAssignRide = onDocumentCreated(
       await snapshot.ref.update({
         ddId: bestDD.userId,
         ddName: ddUser?.name || "Unknown",
-        ddPhoneNumber: ddUser?.phoneNumber || "",
         ddCarDescription: bestDD.assignment.carDescription || "Unknown car",
         status: "assigned",
         assignedTime: FieldValue.serverTimestamp(),

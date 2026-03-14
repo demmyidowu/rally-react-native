@@ -12,6 +12,7 @@ import * as logger from "firebase-functions/logger";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getFirestore, FieldValue, WriteBatch} from "firebase-admin/firestore";
+import {getMessaging} from "firebase-admin/messaging";
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
@@ -209,8 +210,44 @@ async function notifyChapterAdmins(
       adminCount: adminsSnapshot.size,
     });
 
-    // TODO: Send push notifications via FCM
-    // Placeholder for future implementation
+    // Send push notifications to admins via FCM
+    const messaging = getMessaging();
+    const sendPromises: Promise<void>[] = [];
+
+    for (const adminDoc of adminsSnapshot.docs) {
+      const fcmToken = adminDoc.data()?.fcmToken;
+      if (!fcmToken) continue;
+
+      const sendPromise = messaging
+        .send({
+          token: fcmToken,
+          notification: {
+            title: "Annual Year Transition Complete",
+            body:
+              `${seniorsRemoved} seniors removed, ` +
+              `${usersAdvanced} members advanced. Please add new freshmen.`,
+          },
+          data: {
+            type: "year_transition",
+            chapterId,
+          },
+        })
+        .then(() => {
+          logger.info("Year transition push sent to admin", {
+            adminId: adminDoc.id,
+          });
+        })
+        .catch((err: any) => {
+          logger.error("Failed to send year transition push to admin", {
+            adminId: adminDoc.id,
+            error: err.message,
+          });
+        });
+
+      sendPromises.push(sendPromise);
+    }
+
+    await Promise.all(sendPromises);
   } catch (error: any) {
     logger.error("Failed to notify admins", {
       chapterId,

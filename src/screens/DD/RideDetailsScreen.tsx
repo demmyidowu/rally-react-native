@@ -10,7 +10,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Linking,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,18 +27,6 @@ const DDRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   const rides = useAppSelector(selectRides);
   const loading = useAppSelector(selectLoading);
   const ride = rides.find(r => r.id === rideId);
-
-  const handleCallRider = () => {
-    if (ride?.riderPhone) {
-      Linking.openURL(`tel:${ride.riderPhone}`);
-    }
-  };
-
-  const handleTextRider = () => {
-    if (ride?.riderPhone) {
-      Linking.openURL(`sms:${ride.riderPhone}`);
-    }
-  };
 
   const handleNavigate = () => {
     if (!ride) return;
@@ -141,21 +128,7 @@ const DDRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
             <View style={styles.riderDetails}>
               <Text style={styles.riderName}>{ride.riderName || 'Rider'}</Text>
-              <Text style={styles.riderPhone}>{ride.riderPhone || 'N/A'}</Text>
             </View>
-          </View>
-          <View style={styles.riderActions}>
-            <Button
-              title="📞 Call"
-              onPress={handleCallRider}
-              style={styles.actionButton}
-            />
-            <Button
-              title="💬 Text"
-              variant="secondary"
-              onPress={handleTextRider}
-              style={styles.actionButton}
-            />
           </View>
         </Card>
 
@@ -308,18 +281,6 @@ const styles = StyleSheet.create({
   riderName: {
     ...typography.h3,
     color: colors.gray[800],
-  },
-  riderPhone: {
-    ...typography.caption,
-    color: colors.gray[500],
-    marginTop: spacing.xs,
-  },
-  riderActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  actionButton: {
-    flex: 1,
   },
   locationCard: {
     padding: spacing.lg,

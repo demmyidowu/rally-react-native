@@ -28,17 +28,11 @@ export interface Ride {
   /** Name of the rider */
   riderName?: string;
 
-  /** Phone number of the rider */
-  riderPhone?: string;
-
   /** ID of the designated driver assigned to this ride */
   ddId?: string;
 
   /** Name of the designated driver */
   ddName?: string;
-
-  /** Phone number of the designated driver */
-  ddPhone?: string;
 
   /** Reference to the chapter (optional for new signups without chapter) */
   chapterId?: string;
@@ -138,10 +132,8 @@ export interface RideDocument {
   id?: string;
   riderId: string;
   riderName?: string;
-  riderPhone?: string;
   ddId?: string;
   ddName?: string;
-  ddPhone?: string;
   chapterId?: string;
   eventId?: string;
   pickupLocation: GeoPoint;

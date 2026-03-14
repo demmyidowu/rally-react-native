@@ -316,6 +316,11 @@ export const selectIsEmailVerified = createSelector(
   (auth) => auth.isEmailVerified
 );
 
+export const selectOnboardingComplete = createSelector(
+  [selectAuthState],
+  (auth) => auth.user?.onboardingComplete ?? false
+);
+
 // ============================================================================
 // Reducer Export
 // ============================================================================

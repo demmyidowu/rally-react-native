@@ -33,7 +33,6 @@ interface UseAuthResult {
     email: string,
     password: string,
     name: string,
-    phoneNumber?: string,
     chapterId?: string,
     classYear?: number,
     adminCode?: string
@@ -101,7 +100,6 @@ export function useAuth(): UseAuthResult {
     email: string,
     password: string,
     name: string,
-    phoneNumber?: string,
     chapterId: string = '',
     classYear: number = 1,
     adminCode?: string
@@ -113,7 +111,6 @@ export function useAuth(): UseAuthResult {
         email,
         password,
         name,
-        phoneNumber,
         chapterId,
         classYear,
         adminCode,

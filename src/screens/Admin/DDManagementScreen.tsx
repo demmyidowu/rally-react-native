@@ -70,7 +70,6 @@ const DDManagementScreen: React.FC<Props> = ({ navigation }) => {
         </View>
         <View style={styles.ddInfo}>
           <Text style={styles.ddName}>{item.ddName}</Text>
-          <Text style={styles.ddPhone}>{item.ddPhone}</Text>
           {item.carDescription && (
             <Text style={styles.ddCar}>🚗 {item.carDescription}</Text>
           )}
@@ -225,10 +224,6 @@ const styles = StyleSheet.create({
   ddName: {
     ...typography.h3,
     color: colors.gray[800],
-  },
-  ddPhone: {
-    ...typography.caption,
-    color: colors.gray[500],
   },
   ddCar: {
     ...typography.caption,

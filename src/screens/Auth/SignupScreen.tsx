@@ -185,7 +185,6 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
         email.trim(),
         password,
         name.trim(),
-        undefined,
         selectedChapter,
         parseInt(selectedClassYear) || 1,
         isChapterAdmin ? adminCode.trim() : undefined // Pass admin code if registering as admin

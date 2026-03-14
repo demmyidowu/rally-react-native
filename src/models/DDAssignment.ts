@@ -18,9 +18,6 @@ export interface DDAssignment {
   /** DD's display name */
   ddName: string;
 
-  /** DD's phone number */
-  ddPhone: string;
-
   /** URL to DD's photo for rider identification */
   photoURL?: string;
 
@@ -66,7 +63,6 @@ export interface DDAssignmentDocument {
   eventId: string;
   ddId: string;
   ddName: string;
-  ddPhone: string;
   photoURL?: string;
   carDescription?: string;
   isActive: boolean;

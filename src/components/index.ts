@@ -22,7 +22,6 @@ export * from './DDCard';
 export * from './Avatar';
 export * from './StatusBadge';
 export * from './QueuePosition';
-export * from './PhoneNumberInput';
 
 // UI State Components
 export * from './LoadingSpinner';

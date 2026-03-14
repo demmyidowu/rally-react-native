@@ -105,7 +105,6 @@ export const requestRide = createAsyncThunk(
     {
       riderId,
       riderName,
-      riderPhone,
       classYear,
       riderChapterId,
       eventId,
@@ -118,7 +117,6 @@ export const requestRide = createAsyncThunk(
       notes,
     }: RideRequest & {
       riderName: string;
-      riderPhone: string;
       classYear: number;
       riderChapterId?: string;
       eventId?: string;
@@ -150,7 +148,6 @@ export const requestRide = createAsyncThunk(
       const rideData: Record<string, any> = {
         riderId,
         riderName,
-        riderPhone,
         status: RideStatus.QUEUED,
         pickupLocation,
         isEmergency,

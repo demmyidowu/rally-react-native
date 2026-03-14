@@ -16,6 +16,8 @@ import MyRidesScreen from '../screens/Rider/MyRidesScreen';
 import RideDetailsScreen from '../screens/Rider/RideDetailsScreen';
 import JoinChapterScreen from '../screens/Rider/JoinChapterScreen';
 import ProfileScreen from '../screens/Rider/ProfileScreen';
+import HelpScreen from '../screens/shared/HelpScreen';
+import SettingsScreen from '../screens/shared/SettingsScreen';
 
 const Stack = createStackNavigator<RiderStackParamList>();
 
@@ -76,6 +78,22 @@ export const RiderNavigator: React.FC = () => {
         component={ProfileScreen}
         options={{
           title: 'Profile',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Help"
+        component={HelpScreen}
+        options={{
+          title: 'Help & Support',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          title: 'Settings',
           headerShown: false,
         }}
       />

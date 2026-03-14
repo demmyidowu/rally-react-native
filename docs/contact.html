@@ -165,6 +165,86 @@
             font-size: 0.9rem;
         }
 
+        /* FEEDBACK FORM */
+        .feedback-form {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 32px 28px;
+            margin-top: 8px;
+        }
+
+        .feedback-form h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .feedback-form p {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.93rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--bg);
+            transition: border-color 0.2s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: var(--white);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-submit {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.2s;
+        }
+
+        .form-submit:hover {
+            background: var(--primary-dark);
+        }
+
         /* CONTACT CARDS */
         .contact-grid {
             display: grid;
@@ -286,6 +366,34 @@
                     <li>Your device model and OS version</li>
                 </ul>
             </div>
+        </div>
+
+        <h2>Send Feedback</h2>
+        <!-- Formspree form — replace YOUR_FORM_ID with your Formspree endpoint -->
+        <div class="feedback-form">
+            <h3>Submit a Bug Report or Feedback</h3>
+            <p>Fill out the form below and we'll get back to you within 48 hours. No email client required.</p>
+            <form action="https://formspree.io/f/maqpdyyo" method="POST">
+                <div class="form-group">
+                    <label for="feedback-email">Your Email</label>
+                    <input type="email" id="feedback-email" name="email" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="feedback-type">Type</label>
+                    <select id="feedback-type" name="type">
+                        <option value="bug">Bug Report</option>
+                        <option value="feedback">General Feedback</option>
+                        <option value="privacy">Privacy / Data Request</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="feedback-message">Message</label>
+                    <textarea id="feedback-message" name="message" placeholder="Describe your issue or feedback..."
+                        required></textarea>
+                </div>
+                <button type="submit" class="form-submit">Send Message</button>
+            </form>
         </div>
 
         <h2>Privacy Concerns</h2>

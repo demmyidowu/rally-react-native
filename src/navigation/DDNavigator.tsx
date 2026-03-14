@@ -15,6 +15,8 @@ import RideDetailsScreen from '../screens/DD/RideDetailsScreen';
 import NavigationScreen from '../screens/DD/NavigationScreen';
 import CarSettingsScreen from '../screens/DD/CarSettingsScreen';
 import ProfileScreen from '../screens/DD/ProfileScreen';
+import HelpScreen from '../screens/shared/HelpScreen';
+import SettingsScreen from '../screens/shared/SettingsScreen';
 
 const Stack = createStackNavigator<DDStackParamList>();
 
@@ -69,6 +71,22 @@ export const DDNavigator: React.FC = () => {
         component={ProfileScreen}
         options={{
           title: 'Profile',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Help"
+        component={HelpScreen}
+        options={{
+          title: 'Help & Support',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          title: 'Settings',
           headerShown: false,
         }}
       />

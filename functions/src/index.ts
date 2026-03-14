@@ -221,4 +221,11 @@ export { seedChapters } from "./seedData";
  */
 export { fixUniversityData } from "./fixData";
 
+/**
+ * Seeds the App Store review test school (Demo University)
+ * One-time HTTP trigger — call via curl after deployment
+ * Creates two pre-verified accounts: reviewerRider@ksu.edu and reviewerDD@ksu.edu
+ */
+export { seedTestSchool } from "./seedTestSchool";
+
 
