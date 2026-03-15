@@ -25,3 +25,14 @@ export const PENALTY_STATUSES: readonly RideStatus[] = [RideStatus.ARRIVED] as c
 export const shouldApplyPenalty = (status: RideStatus): boolean => {
   return PENALTY_STATUSES.includes(status);
 };
+
+/**
+ * Duration of the emergency abuse penalty window (7 days in milliseconds)
+ */
+export const EMERGENCY_ABUSE_PENALTY_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Priority cap applied to non-emergency rides while abuse penalty is active.
+ * Senior waiting 30 min normally scores 55; cap at 20 keeps them behind all clean riders.
+ */
+export const EMERGENCY_ABUSE_MAX_PRIORITY = 20;

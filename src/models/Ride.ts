@@ -40,14 +40,14 @@ export interface Ride {
   /** Reference to the event (optional for non-event rides) */
   eventId?: string;
 
-  /** Pickup location using Firebase GeoPoint for geolocation queries */
-  pickupLocation: GeoPoint;
+  /** Pickup location as plain coordinate (serializable for Redux) */
+  pickupLocation: { latitude: number; longitude: number };
 
   /** Human-readable pickup address */
   pickupAddress?: string;
 
   /** Dropoff location */
-  dropoffLocation?: GeoPoint;
+  dropoffLocation?: { latitude: number; longitude: number };
 
   /** Human-readable dropoff address */
   dropoffAddress?: string;

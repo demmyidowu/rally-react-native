@@ -54,6 +54,9 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { store } from '../store/store';
+import type { AppDispatch } from '../store/store';
+import { fetchActiveRides } from '../store/slices/ridesSlice';
 import {
   NotificationType,
   NotificationData,
@@ -209,11 +212,17 @@ class NotificationService {
     const notifData = data as unknown as NotificationData;
     console.log('📬 Notification received (foreground):', notifData.type);
 
-    // You can add custom logic here, such as:
-    // - Update Redux store
-    // - Show in-app banner
-    // - Play custom sound
-    // - Update badge count
+    const type = notification.request.content.data?.type as string | undefined;
+    const rideRelatedTypes: string[] = [
+      NotificationType.RIDE_ASSIGNED,
+      NotificationType.DD_EN_ROUTE,
+      NotificationType.DD_ARRIVED,
+      NotificationType.RIDE_COMPLETED,
+      NotificationType.EMERGENCY_ALERT,
+    ];
+    if (type && rideRelatedTypes.includes(type)) {
+      (store.dispatch as AppDispatch)(fetchActiveRides());
+    }
   }
 
   /**

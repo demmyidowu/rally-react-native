@@ -10,7 +10,7 @@ import * as logger from "firebase-functions/logger";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
-import { getMessaging } from "firebase-admin/messaging";
+import { sendPushNotification } from "./pushNotifications";
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
@@ -323,29 +323,13 @@ async function checkProlongedInactivity(
     });
 
     // Send push notification to DD
-    const userDoc = await db.collection("users").doc(ddId).get();
-    const fcmToken = userDoc.data()?.fcmToken;
-    if (fcmToken) {
-      try {
-        await getMessaging().send({
-          token: fcmToken,
-          notification: {
-            title: "You've been marked inactive",
-            body: "You have been inactive for 15+ minutes. Please update your status.",
-          },
-          data: {
-            type: "dd_inactivity",
-            eventId,
-          },
-        });
-        logger.info("Inactivity push sent to DD", {ddId});
-      } catch (err: any) {
-        logger.error("Failed to send inactivity push to DD", {
-          ddId,
-          error: err.message,
-        });
-      }
-    }
+    await sendPushNotification(
+      ddId,
+      "You've been marked inactive",
+      "You have been inactive for 15+ minutes. Please update your status.",
+      {type: "dd_inactivity", eventId}
+    );
+    logger.info("Inactivity push sent to DD", {ddId});
   }
 }
 

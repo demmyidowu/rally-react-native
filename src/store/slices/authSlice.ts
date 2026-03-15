@@ -24,6 +24,7 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitializing: boolean;
   error: string | null;
   isEmailVerified: boolean;
 }
@@ -32,6 +33,7 @@ const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  isInitializing: true,
   error: null,
   isEmailVerified: false,
 };
@@ -246,16 +248,13 @@ const authSlice = createSlice({
     // Update user profile
     builder
       .addCase(updateUserProfile.pending, (state) => {
-        state.isLoading = true;
         state.error = null;
       })
       .addCase(updateUserProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
         state.user = action.payload;
         state.error = null;
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
-        state.isLoading = false;
         state.error = action.payload as string;
       });
 
@@ -266,6 +265,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchUserProfile.fulfilled, (state, action) => {
+        state.isInitializing = false;
         state.isLoading = false;
         state.user = action.payload;
         state.isAuthenticated = !!action.payload;
@@ -273,6 +273,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchUserProfile.rejected, (state, action) => {
+        state.isInitializing = false;
         state.isLoading = false;
         state.error = action.payload as string;
       });
@@ -314,6 +315,11 @@ export const selectError = createSelector(
 export const selectIsEmailVerified = createSelector(
   [selectAuthState],
   (auth) => auth.isEmailVerified
+);
+
+export const selectIsInitializing = createSelector(
+  [selectAuthState],
+  (auth) => auth.isInitializing
 );
 
 export const selectOnboardingComplete = createSelector(

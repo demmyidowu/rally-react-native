@@ -7,9 +7,10 @@
 
 import * as logger from "firebase-functions/logger";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {onTaskDispatched} from "firebase-functions/v2/tasks";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getFirestore, FieldValue} from "firebase-admin/firestore";
-import {getMessaging} from "firebase-admin/messaging";
+import {getFunctions} from "firebase-admin/functions";
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
@@ -78,6 +79,7 @@ function formatAddress(address: string): string {
 async function createEmergencyAlert(data: {
   chapterId: string;
   rideId: string;
+  riderId: string;
   riderName: string;
   pickupAddress: string;
   emergencyReason: string;
@@ -96,6 +98,7 @@ async function createEmergencyAlert(data: {
       type: "emergency_request",
       message,
       rideId: data.rideId,
+      riderId: data.riderId,
       isRead: false,
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -110,98 +113,6 @@ async function createEmergencyAlert(data: {
       rideId: data.rideId,
     });
     throw error; // This should throw since emergency alerts are critical
-  }
-}
-
-/**
- * Notify chapter admins via push notification (placeholder)
- *
- * @param chapterId - Chapter ID
- * @param rideId - Ride document ID
- * @param riderName - Name of rider requesting emergency pickup
- */
-async function notifyChapterAdmins(
-  chapterId: string,
-  rideId: string,
-  _riderName: string
-): Promise<void> {
-  try {
-    // Fetch all admins for this chapter
-    const adminsSnapshot = await db
-      .collection("users")
-      .where("chapterId", "==", chapterId)
-      .where("role", "==", "admin")
-      .get();
-
-    if (adminsSnapshot.empty) {
-      logger.warn("No admins found for chapter", {chapterId});
-      return;
-    }
-
-    logger.info("Found chapter admins for notification", {
-      chapterId,
-      adminCount: adminsSnapshot.size,
-    });
-
-    const messaging = getMessaging();
-    const sendPromises: Promise<void>[] = [];
-
-    for (const adminDoc of adminsSnapshot.docs) {
-      const admin = adminDoc.data();
-      if (!admin.fcmToken) continue;
-
-      const sendPromise = messaging
-        .send({
-          token: admin.fcmToken,
-          notification: {
-            title: "🚨 EMERGENCY RIDE REQUEST",
-            body: `${_riderName} needs immediate pickup`,
-          },
-          data: {
-            rideId,
-            type: "emergency",
-            priority: "high",
-          },
-          apns: {
-            payload: {
-              aps: {
-                sound: "default",
-                badge: 1,
-                contentAvailable: true,
-              },
-            },
-          },
-          android: {
-            priority: "high",
-          },
-        })
-        .then(() => {
-          logger.info("Emergency push sent to admin", {adminId: adminDoc.id});
-        })
-        .catch((err: any) => {
-          logger.error("Failed to send emergency push to admin", {
-            adminId: adminDoc.id,
-            error: err.message,
-          });
-        });
-
-      sendPromises.push(sendPromise);
-    }
-
-    await Promise.all(sendPromises);
-
-    logger.info("Emergency admin push notifications dispatched", {
-      chapterId,
-      rideId,
-      adminCount: adminsSnapshot.size,
-    });
-  } catch (error: any) {
-    logger.error("Failed to notify admins", {
-      chapterId,
-      rideId,
-      error: error.message,
-    });
-    // Don't throw - push notification failure shouldn't fail the function
   }
 }
 
@@ -286,17 +197,18 @@ export const handleEmergencyRide = onDocumentCreated(
       await createEmergencyAlert({
         chapterId,
         rideId,
+        riderId: ride.riderId || "",
         riderName: ride.riderName || "Unknown",
         pickupAddress: ride.pickupAddress || "Unknown location",
         emergencyReason: ride.emergencyReason || "No reason provided",
         eventName,
       });
 
-      // Notify chapter admins
-      await notifyChapterAdmins(
-        chapterId,
-        rideId,
-        ride.riderName || "Unknown"
+      // Enqueue a delayed check for unassigned emergency ride (2 min)
+      const queue = getFunctions().taskQueue("checkUnassignedEmergency");
+      await queue.enqueue(
+        {rideId, chapterId},
+        {scheduleDelaySeconds: 120}
       );
 
       logger.info("Emergency ride processed successfully", {
@@ -318,40 +230,27 @@ export const handleEmergencyRide = onDocumentCreated(
 );
 
 /**
- * Monitor emergency ride status and alert if not assigned quickly
+ * Cloud Task handler: check if emergency ride is still unassigned after 2 minutes
  *
- * Triggered when an emergency ride is updated
- * Alerts admins if emergency ride remains unassigned for too long
+ * Dispatched by handleEmergencyRide with a 120-second delay.
+ * Frees the function instance immediately instead of blocking with setTimeout.
  */
-export const monitorEmergencyRideStatus = onDocumentCreated(
+export const checkUnassignedEmergency = onTaskDispatched(
   {
-    document: "rides/{rideId}",
+    retryConfig: {maxAttempts: 1},
+    rateLimits: {maxConcurrentDispatches: 10},
     region: "us-central1",
-    timeoutSeconds: 30,
-    memory: "256MiB",
   },
-  async (event) => {
-    const snapshot = event.data;
-    if (!snapshot) return;
-
-    const ride = snapshot.data();
-    if (!ride.isEmergency) return;
-
-    // Wait 2 minutes then check if still unassigned
-    await new Promise((resolve) => setTimeout(resolve, 120000)); // 2 minutes
+  async (req) => {
+    const {rideId, chapterId} = req.data as {rideId: string; chapterId: string};
 
     try {
-      // Re-fetch ride to check current status
-      const updatedRide = await snapshot.ref.get();
-      const currentRide = updatedRide.data();
+      const rideDoc = await db.collection("rides").doc(rideId).get();
+      const currentRide = rideDoc.data();
 
       if (!currentRide) return;
 
-      // Check if still queued
       if (currentRide.status === "queued") {
-        const chapterId = await getChapterIdFromEvent(currentRide.eventId);
-        if (!chapterId) return;
-
         await db.collection("adminAlerts").add({
           chapterId,
           type: "emergency_request",
@@ -360,21 +259,18 @@ export const monitorEmergencyRideStatus = onDocumentCreated(
             `Rider: ${currentRide.riderName}\n` +
             `Location: ${formatAddress(currentRide.pickupAddress)}\n` +
             "Request time: 2+ minutes ago",
-          rideId: snapshot.id,
+          rideId,
           isRead: false,
           createdAt: FieldValue.serverTimestamp(),
         });
 
-        logger.warn("Emergency ride still unassigned after 2 minutes", {
-          rideId: snapshot.id,
-        });
+        logger.warn("Emergency ride still unassigned after 2 minutes", {rideId});
       }
     } catch (error: any) {
-      logger.error("Error monitoring emergency ride status", {
-        rideId: snapshot.id,
+      logger.error("Error in checkUnassignedEmergency task", {
+        rideId,
         error: error.message,
       });
-      // Don't throw - this is a secondary check
     }
   }
 );

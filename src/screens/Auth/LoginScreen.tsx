@@ -31,6 +31,7 @@ import { Button, Input } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../config/firebase';
+import { AuthError } from '../../types/errors';
 
 type Props = AuthScreenProps<'Login'>;
 
@@ -112,15 +113,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         [{ text: 'OK' }]
       );
     } catch (err: any) {
-      let errorMessage = 'Failed to send reset email. Please try again.';
-      if (err.code === 'auth/user-not-found') {
-        errorMessage = 'No account found with this email address.';
-      } else if (err.code === 'auth/invalid-email') {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (err.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many requests. Please wait and try again later.';
-      }
-      Alert.alert('Error', errorMessage);
+      const mapped = AuthError.fromFirebaseAuthError(err);
+      Alert.alert('Error', mapped.message);
     } finally {
       setResetLoading(false);
     }

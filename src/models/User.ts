@@ -74,6 +74,12 @@ export interface User {
    */
   nextRidePenalty?: number;
 
+  /** Number of times an emergency abuse penalty has been applied to this user */
+  emergencyAbuseStrikes?: number;
+
+  /** ISO string; while this timestamp is in the future, non-emergency ride priority is capped */
+  emergencyAbusePenaltyUntil?: string;
+
   /** Timestamp when the user was created (ISO string) */
   createdAt: string;
 

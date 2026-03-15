@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "115001258662",
+    "project_id": "ddride-didowu",
+    "storage_bucket": "ddride-didowu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:115001258662:android:685a2f79b616f9d9883a67",
+        "android_client_info": {
+          "package_name": "com.RallyRide.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwfGtUIWEuwK5jP0uHDoBtKfd8WsjFLzo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

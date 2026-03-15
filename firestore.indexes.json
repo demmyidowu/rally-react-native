@@ -57,6 +57,10 @@
                 {
                     "fieldPath": "status",
                     "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "assignedAt",
+                    "order": "DESCENDING"
                 }
             ]
         },

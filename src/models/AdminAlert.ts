@@ -2,17 +2,20 @@
  * Alert type enumeration for different types of admin notifications
  */
 export enum AlertType {
-  /** DD toggled inactive more than 5 times in 30 minutes */
-  DD_INACTIVE_TOGGLE = 'dd_inactive_toggle',
-
-  /** DD has been inactive for more than 15 minutes during their shift */
-  DD_PROLONGED_INACTIVE = 'dd_prolonged_inactive',
-
   /** Emergency button was pressed by a rider */
-  EMERGENCY_RIDE = 'emergency_ride',
+  EMERGENCY_RIDE = 'emergency_request',
+
+  /** DD toggled inactive excessively or was inactive too long */
+  DD_INACTIVE = 'dd_inactive',
+
+  /** Year transition completed */
+  YEAR_TRANSITION = 'year_transition',
 
   /** System-level errors requiring admin attention */
   SYSTEM_ERROR = 'system_error',
+
+  /** DD flagged an emergency ride as non-emergency; penalty already applied */
+  DD_ABUSE_REPORT = 'dd_abuse_report',
 }
 
 /**
@@ -40,6 +43,12 @@ export interface AdminAlert {
   /** ID of the ride related to this alert (for ride-specific alerts) */
   rideId?: string;
 
+  /** Firebase UID of the rider who triggered an emergency ride */
+  riderId?: string;
+
+  /** True once an emergency abuse penalty has been applied — prevents double-penalty */
+  abusePenaltyApplied?: boolean;
+
   /** Whether the alert has been read/acknowledged by an admin */
   isRead: boolean;
 
@@ -52,13 +61,15 @@ export interface AdminAlert {
  */
 export const getAlertTypeDisplayName = (type: AlertType): string => {
   switch (type) {
-    case AlertType.DD_INACTIVE_TOGGLE:
-      return 'DD Inactive Toggle';
-    case AlertType.DD_PROLONGED_INACTIVE:
-      return 'DD Prolonged Inactive';
     case AlertType.EMERGENCY_RIDE:
       return 'Emergency Ride';
+    case AlertType.DD_INACTIVE:
+      return 'DD Inactive';
+    case AlertType.YEAR_TRANSITION:
+      return 'Year Transition';
     case AlertType.SYSTEM_ERROR:
       return 'System Error';
+    case AlertType.DD_ABUSE_REPORT:
+      return 'Abuse Report';
   }
 };

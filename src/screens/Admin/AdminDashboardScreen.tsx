@@ -20,6 +20,8 @@ import { AdminScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/authSlice';
 import { selectActiveEvent, fetchActiveEvent, selectLoading as selectEventsLoading } from '../../store/slices/eventsSlice';
+import { selectActiveRides, fetchActiveRides } from '../../store/slices/ridesSlice';
+import { fetchDDAssignments, selectStats } from '../../store/slices/ddAssignmentsSlice';
 import { Card, StatusBadge, ActionCard, SectionHeader } from '../../components';
 import { colors, spacing, typography, borderRadius, borders } from '../../components/theme';
 import { AdminAlert, AlertType } from '../../models/AdminAlert';
@@ -34,10 +36,8 @@ const getAlertIcon = (type: AlertType): keyof typeof Ionicons.glyphMap => {
   switch (type) {
     case AlertType.EMERGENCY_RIDE:
       return 'alert-circle';
-    case AlertType.DD_INACTIVE_TOGGLE:
+    case AlertType.DD_INACTIVE:
       return 'warning-outline';
-    case AlertType.DD_PROLONGED_INACTIVE:
-      return 'time-outline';
     case AlertType.SYSTEM_ERROR:
       return 'close-circle-outline';
     default:
@@ -52,9 +52,7 @@ const getAlertIconColor = (type: AlertType): string => {
   switch (type) {
     case AlertType.EMERGENCY_RIDE:
       return colors.error;
-    case AlertType.DD_INACTIVE_TOGGLE:
-      return colors.warning;
-    case AlertType.DD_PROLONGED_INACTIVE:
+    case AlertType.DD_INACTIVE:
       return colors.warning;
     case AlertType.SYSTEM_ERROR:
       return colors.error;
@@ -95,6 +93,8 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const user = useAppSelector(selectUser);
   const activeEvent = useAppSelector(selectActiveEvent);
   const loading = useAppSelector(selectEventsLoading);
+  const activeRides = useAppSelector(selectActiveRides);
+  const ddStats = useAppSelector(selectStats);
 
   // Alert state
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
@@ -103,6 +103,7 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     if (!user?.chapterId) return;
     dispatch(fetchActiveEvent(user.chapterId));
+    dispatch(fetchActiveRides());
 
     const unsubscribe = observeAdminAlerts(user.chapterId, (newAlerts) => {
       setAlerts(newAlerts.slice(0, 5));
@@ -112,18 +113,27 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
     return () => unsubscribe();
   }, [dispatch, user?.chapterId]);
 
+  useEffect(() => {
+    if (activeEvent?.id) {
+      dispatch(fetchDDAssignments(activeEvent.id));
+    }
+  }, [dispatch, activeEvent?.id]);
+
   const handleRefresh = () => {
     if (user?.chapterId) {
       dispatch(fetchActiveEvent(user.chapterId));
+      dispatch(fetchActiveRides());
       // alerts are live — no manual reload needed
+    }
+    if (activeEvent?.id) {
+      dispatch(fetchDDAssignments(activeEvent.id));
     }
   };
 
-  // Quick stats - these would come from a separate stats endpoint in production
   const quickStats = {
-    activeRides: 0,  // TODO: Fetch from rides slice
+    activeRides: activeRides.filter(r => r.eventId === activeEvent?.id).length,
     activeDDs: (activeEvent?.assignedDDs?.length) || 0,
-    completedRides: 0,  // TODO: Fetch from rides slice
+    completedRides: ddStats.reduce((sum, s) => sum + s.totalRides, 0),
   };
 
   return (

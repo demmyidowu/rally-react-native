@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,9 @@ import { selectUser } from '../../store/slices/authSlice';
 import { AdminAlert, AlertType, getAlertTypeDisplayName } from '../../models/AdminAlert';
 import { fetchAdminAlerts, markAlertAsRead } from '../../services';
 import { colors, spacing, typography, borderRadius, shadows, borders } from '../../components/theme';
+import { applyAbusePenalty } from '../../services/abuseService';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 type Props = AdminScreenProps<'Alerts'>;
 
@@ -34,10 +38,8 @@ const getAlertIcon = (type: AlertType): keyof typeof Ionicons.glyphMap => {
   switch (type) {
     case AlertType.EMERGENCY_RIDE:
       return 'alert-circle';
-    case AlertType.DD_INACTIVE_TOGGLE:
+    case AlertType.DD_INACTIVE:
       return 'warning-outline';
-    case AlertType.DD_PROLONGED_INACTIVE:
-      return 'time-outline';
     case AlertType.SYSTEM_ERROR:
       return 'close-circle-outline';
     default:
@@ -52,9 +54,7 @@ const getAlertIconColor = (type: AlertType): string => {
   switch (type) {
     case AlertType.EMERGENCY_RIDE:
       return colors.error;
-    case AlertType.DD_INACTIVE_TOGGLE:
-      return colors.warning;
-    case AlertType.DD_PROLONGED_INACTIVE:
+    case AlertType.DD_INACTIVE:
       return colors.warning;
     case AlertType.SYSTEM_ERROR:
       return colors.error;
@@ -149,6 +149,49 @@ const AlertsScreen: React.FC<Props> = ({ navigation: _navigation }) => {
   };
 
   /**
+   * Handle marking an emergency alert as abuse and applying a 7-day priority penalty
+   */
+  const handleMarkAsAbuse = async (alert: AdminAlert) => {
+    if (!alert.rideId || !alert.chapterId) return;
+
+    Alert.alert(
+      'Apply Abuse Penalty?',
+      "This will reduce the rider's ride priority for 7 days. Are you sure?",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Apply Penalty',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              let riderId = alert.riderId;
+              if (!riderId && alert.rideId) {
+                const rideSnap = await getDoc(doc(db, 'rides', alert.rideId));
+                riderId = rideSnap.data()?.riderId;
+              }
+              if (!riderId) {
+                Alert.alert('Error', 'Cannot identify rider for this alert.');
+                return;
+              }
+              await applyAbusePenalty(riderId, alert.rideId!, alert.chapterId, false);
+              await markAlertAsRead(alert.id);
+              setAlerts((prev) =>
+                prev.map((a) =>
+                  a.id === alert.id ? { ...a, abusePenaltyApplied: true, isRead: true } : a
+                )
+              );
+              Alert.alert('Penalty Applied', "The rider's ride priority has been reduced for 7 days.");
+            } catch (error) {
+              console.error('Failed to apply abuse penalty:', error);
+              Alert.alert('Error', 'Failed to apply penalty. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
    * Filter alerts based on selected filter
    */
   const filteredAlerts = alerts.filter((alert) => {
@@ -158,10 +201,7 @@ const AlertsScreen: React.FC<Props> = ({ navigation: _navigation }) => {
       case 'emergency':
         return alert.type === AlertType.EMERGENCY_RIDE;
       case 'dd_activity':
-        return (
-          alert.type === AlertType.DD_INACTIVE_TOGGLE ||
-          alert.type === AlertType.DD_PROLONGED_INACTIVE
-        );
+        return alert.type === AlertType.DD_INACTIVE;
       default:
         return true;
     }
@@ -218,6 +258,18 @@ const AlertsScreen: React.FC<Props> = ({ navigation: _navigation }) => {
           </Text>
           {!item.isRead && (
             <Text style={styles.tapToRead}>Tap to mark as read</Text>
+          )}
+          {item.type === AlertType.EMERGENCY_RIDE && item.rideId && !item.abusePenaltyApplied && (
+            <TouchableOpacity
+              style={styles.abuseButton}
+              onPress={() => handleMarkAsAbuse(item)}
+            >
+              <Ionicons name="flag" size={14} color={colors.error} />
+              <Text style={styles.abuseButtonText}>Mark as Emergency Abuse</Text>
+            </TouchableOpacity>
+          )}
+          {item.type === AlertType.EMERGENCY_RIDE && item.abusePenaltyApplied && (
+            <Text style={styles.penaltyAppliedLabel}>⚑ Penalty already applied</Text>
           )}
         </View>
         {!item.isRead && <View style={styles.unreadIndicator} />}
@@ -453,6 +505,29 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.white,
     fontWeight: '600',
+  },
+  abuseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    backgroundColor: `${colors.error}12`,
+    borderWidth: 1,
+    borderColor: `${colors.error}40`,
+  },
+  abuseButtonText: {
+    ...typography.caption,
+    color: colors.error,
+    fontWeight: '600',
+    marginLeft: spacing.xs,
+  },
+  penaltyAppliedLabel: {
+    ...typography.caption,
+    color: colors.gray[500],
+    marginTop: spacing.sm,
+    fontStyle: 'italic',
   },
 });
 

@@ -116,8 +116,23 @@ export class AuthError extends AppError {
         return AuthError.TOO_MANY_REQUESTS;
       case 'auth/network-request-failed':
         return AuthError.NETWORK_ERROR;
+      case 'auth/invalid-credential':
+      case 'auth/invalid-login-credentials':
+        return new AuthError('Incorrect email or password.', 'INVALID_CREDENTIAL');
+      case 'auth/user-disabled':
+        return new AuthError('This account has been disabled. Please contact support.', 'USER_DISABLED');
+      case 'auth/operation-not-allowed':
+        return new AuthError('This sign-in method is not allowed. Please contact support.', 'OPERATION_NOT_ALLOWED');
+      case 'auth/requires-recent-login':
+        return new AuthError('Please sign out and sign back in to continue.', 'REQUIRES_RECENT_LOGIN');
+      case 'auth/expired-action-code':
+        return new AuthError('This link has expired. Please request a new one.', 'EXPIRED_ACTION_CODE');
+      case 'auth/invalid-action-code':
+        return new AuthError('This link is invalid or has already been used.', 'INVALID_ACTION_CODE');
+      case 'auth/missing-email':
+        return new AuthError('Please enter your email address.', 'MISSING_EMAIL');
       default:
-        return AuthError.UNKNOWN(error?.message);
+        return AuthError.UNKNOWN('');
     }
   }
 }

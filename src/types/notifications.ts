@@ -10,10 +10,11 @@
  */
 export enum NotificationType {
   RIDE_ASSIGNED = 'ride_assigned',
-  DD_EN_ROUTE = 'dd_en_route',
-  RIDE_COMPLETED = 'ride_completed',
-  EMERGENCY_ALERT = 'emergency_alert',
-  DD_ACTIVITY_WARNING = 'dd_activity_warning',
+  DD_EN_ROUTE = 'dd_enroute',
+  DD_ARRIVED = 'dd_arrived',
+  RIDE_COMPLETED = 'ride_complete',
+  EMERGENCY_ALERT = 'emergency_ride',
+  DD_ACTIVITY_WARNING = 'dd_inactivity',
   YEAR_TRANSITION = 'year_transition',
   GENERAL = 'general',
 }

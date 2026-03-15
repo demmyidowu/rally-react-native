@@ -79,7 +79,7 @@ const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.linkRow}
-            onPress={() => openLink('https://rallyride.app/privacy.html')}
+            onPress={() => openLink('https://demmyidowu.github.io/rally-react-native/privacy.html')}
           >
             <Text style={styles.linkText}>Privacy Policy</Text>
             <Text style={styles.chevron}>›</Text>
@@ -89,7 +89,7 @@ const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.linkRow}
-            onPress={() => openLink('https://rallyride.app/terms.html')}
+            onPress={() => openLink('https://demmyidowu.github.io/rally-react-native/index.html')}
           >
             <Text style={styles.linkText}>Terms of Service</Text>
             <Text style={styles.chevron}>›</Text>
@@ -99,7 +99,7 @@ const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.linkRow}
-            onPress={() => openLink('https://support.rallyride.app')}
+            onPress={() => openLink('https://demmyidowu.github.io/rally-react-native/support.html')}
           >
             <Text style={styles.linkText}>Support</Text>
             <Text style={styles.chevron}>›</Text>

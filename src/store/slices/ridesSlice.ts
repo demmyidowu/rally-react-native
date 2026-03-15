@@ -31,6 +31,7 @@ export interface RidesState {
   queue: Ride[]; // Rides with status: requested (sorted by priority)
   myRide: Ride | null; // Current user's active ride
   myRides: Ride[]; // User's ride history
+  ddCurrentRide: Ride | null; // DD's currently assigned ride
   loading: boolean;
   error: string | null;
 }
@@ -41,6 +42,7 @@ const initialState: RidesState = {
   queue: [],
   myRide: null,
   myRides: [],
+  ddCurrentRide: null,
   loading: false,
   error: null,
 };
@@ -49,7 +51,7 @@ const initialState: RidesState = {
 // Converts Timestamps to ISO strings for Redux serialization
 // Destructure out all Timestamp fields to prevent non-serializable values in Redux
 const convertRideDocToRide = (id: string, doc: any): Ride => {
-  // Extract timestamp fields to prevent them from being spread into the result
+  // Extract timestamp and GeoPoint fields to prevent non-serializable values in Redux
   const {
     requestedAt,
     assignedAt,
@@ -57,6 +59,8 @@ const convertRideDocToRide = (id: string, doc: any): Ride => {
     arrivedAt,
     completedAt,
     cancelledAt,
+    pickupLocation,
+    dropoffLocation,
     ...rest
   } = doc;
 
@@ -69,6 +73,12 @@ const convertRideDocToRide = (id: string, doc: any): Ride => {
     arrivedAt: arrivedAt?.toDate?.().toISOString(),
     completedAt: completedAt?.toDate?.().toISOString(),
     cancelledAt: cancelledAt?.toDate?.().toISOString(),
+    pickupLocation: pickupLocation
+      ? { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude }
+      : pickupLocation,
+    ...(dropoffLocation !== undefined && {
+      dropoffLocation: { latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude },
+    }),
   };
 };
 
@@ -137,11 +147,23 @@ export const requestRide = createAsyncThunk(
 
       // Check if rider is in same chapter as event host
       const isInHostChapter = !!(riderChapterId && eventChapterId && riderChapterId === eventChapterId);
-      const priority = calculatePriority(classYear, requestedAt, isEmergency, isInHostChapter, penalty);
+      let priority = calculatePriority(classYear, requestedAt, isEmergency, isInHostChapter, penalty);
 
       // Log penalty application
       if (penalty !== 0) {
         console.log('[RequestRide] Applied penalty to priority:', penalty, 'Final priority:', priority);
+      }
+
+      // Apply emergency abuse priority cap for non-emergency rides
+      if (!isEmergency && userDoc.exists()) {
+        const abusePenaltyUntil = userDoc.data()?.emergencyAbusePenaltyUntil;
+        const isAbusePenaltyActive =
+          abusePenaltyUntil && new Date(abusePenaltyUntil).getTime() > Date.now();
+        if (isAbusePenaltyActive) {
+          const { EMERGENCY_ABUSE_MAX_PRIORITY } = await import('../../constants/penalties');
+          priority = Math.min(priority, EMERGENCY_ABUSE_MAX_PRIORITY);
+          console.log('[RequestRide] Abuse penalty active, capped priority to:', priority);
+        }
       }
 
       // Build ride data, excluding undefined fields (Firestore doesn't accept undefined)
@@ -233,6 +255,26 @@ export const fetchMyRide = createAsyncThunk(
         return null;
       }
 
+      const rideDoc = snapshot.docs[0];
+      return convertRideDocToRide(rideDoc.id, rideDoc.data() as RideDocument);
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Fetch DD's currently assigned ride (direct query, no cross-join dependency)
+export const fetchDDCurrentRide = createAsyncThunk(
+  'rides/fetchDDCurrentRide',
+  async (ddId: string, { rejectWithValue }) => {
+    try {
+      const q = query(
+        collection(db, 'rides'),
+        where('ddId', '==', ddId),
+        where('status', 'in', [RideStatus.ASSIGNED, RideStatus.ENROUTE, RideStatus.ARRIVED])
+      );
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return null;
       const rideDoc = snapshot.docs[0];
       return convertRideDocToRide(rideDoc.id, rideDoc.data() as RideDocument);
     } catch (error: any) {
@@ -771,6 +813,23 @@ const ridesSlice = createSlice({
         state.error = action.payload as string;
       });
 
+    // Fetch DD's current ride
+    builder
+      .addCase(fetchDDCurrentRide.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchDDCurrentRide.fulfilled, (state, action) => {
+        state.loading = false;
+        state.ddCurrentRide = action.payload;
+        state.error = null;
+      })
+      .addCase(fetchDDCurrentRide.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+        console.error('[fetchDDCurrentRide] Query failed:', action.payload);
+      });
+
     // Fetch my rides (history)
     builder
       .addCase(fetchMyRides.pending, (state) => {
@@ -807,6 +866,9 @@ const ridesSlice = createSlice({
       if (activeIndex !== -1) {
         state.activeRides[activeIndex] = action.payload;
       }
+      if (state.ddCurrentRide?.id === action.payload.id) {
+        state.ddCurrentRide = action.payload;
+      }
     });
 
     // Mark arrived
@@ -819,6 +881,9 @@ const ridesSlice = createSlice({
       if (activeIndex !== -1) {
         state.activeRides[activeIndex] = action.payload;
       }
+      if (state.ddCurrentRide?.id === action.payload.id) {
+        state.ddCurrentRide = action.payload;
+      }
     });
 
     // Complete ride
@@ -827,6 +892,9 @@ const ridesSlice = createSlice({
       state.activeRides = state.activeRides.filter((r) => r.id !== action.payload.id);
       if (state.myRide?.id === action.payload.id) {
         state.myRide = null;
+      }
+      if (state.ddCurrentRide?.id === action.payload.id) {
+        state.ddCurrentRide = null;
       }
     });
 
@@ -901,6 +969,7 @@ export const selectActiveRides = (state: RootState) => state.rides.activeRides;
 export const selectQueue = (state: RootState) => state.rides.queue;
 export const selectMyRide = (state: RootState) => state.rides.myRide;
 export const selectMyRides = (state: RootState) => state.rides.myRides;
+export const selectDDCurrentRide = (state: RootState) => state.rides.ddCurrentRide;
 export const selectLoading = (state: RootState) => state.rides.loading;
 export const selectError = (state: RootState) => state.rides.error;
 export const selectQueuePosition = (state: RootState) => {

@@ -15,6 +15,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useSelector } from 'react-redux';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { RootState } from '../store/store';
+import { selectIsInitializing } from '../store/slices/authSlice';
 
 // Import navigators
 import AuthNavigator from './AuthNavigator';
@@ -42,13 +43,13 @@ const linking: LinkingOptions<RootStackParamList> = {
 export const AppNavigator: React.FC = () => {
   // Get auth state from Redux
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
-  const isLoading = useSelector((state: RootState) => state.auth.isLoading);
+  const isInitializing = useSelector(selectIsInitializing);
   const onboardingComplete = useSelector(
     (state: RootState) => state.auth.user?.onboardingComplete ?? false
   );
 
-  // Show loading screen while checking authentication
-  if (isLoading) {
+  // Show loading screen only during initial app startup auth check
+  if (isInitializing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#512888" />

@@ -182,44 +182,68 @@ export const fetchAccessibleEvents = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      // Query both ACTIVE and SCHEDULED events (for early access)
-      // Note: orderBy is omitted to avoid requiring a composite index on (status, startTime).
-      // Results are sorted client-side instead.
-      const activeQuery = query(
+      // If user has no chapter, they can't access any chapter events
+      if (!userChapterId) return [];
+
+      // Query events scoped to user's chapter: either as host or invited guest.
+      // This prevents events from unrelated chapters (e.g. app review test events) from leaking through.
+      const activeHostQuery = query(
         collection(db, 'events'),
-        where('status', '==', EventStatus.ACTIVE)
+        where('status', '==', EventStatus.ACTIVE),
+        where('chapterId', '==', userChapterId)
       );
-
-      const scheduledQuery = query(
+      const activeGuestQuery = query(
         collection(db, 'events'),
-        where('status', '==', EventStatus.SCHEDULED)
+        where('status', '==', EventStatus.ACTIVE),
+        where('allowedOrganizationIds', 'array-contains', userChapterId)
+      );
+      const scheduledHostQuery = query(
+        collection(db, 'events'),
+        where('status', '==', EventStatus.SCHEDULED),
+        where('chapterId', '==', userChapterId)
+      );
+      const scheduledGuestQuery = query(
+        collection(db, 'events'),
+        where('status', '==', EventStatus.SCHEDULED),
+        where('allowedOrganizationIds', 'array-contains', userChapterId)
       );
 
-      // Fetch both queries in parallel
-      const [activeSnapshot, scheduledSnapshot] = await Promise.all([
-        getDocs(activeQuery),
-        getDocs(scheduledQuery),
-      ]);
+      const [activeHostSnap, activeGuestSnap, scheduledHostSnap, scheduledGuestSnap] =
+        await Promise.all([
+          getDocs(activeHostQuery),
+          getDocs(activeGuestQuery),
+          getDocs(scheduledHostQuery),
+          getDocs(scheduledGuestQuery),
+        ]);
 
-      const allActiveEvents = activeSnapshot.docs
-        .map((doc) => convertEventDocToEvent(doc.id, doc.data() as EventDocument))
-        .sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
+      // Merge and deduplicate by event ID
+      const seenIds = new Set<string>();
+      const dedupe = (docs: typeof activeHostSnap.docs): Event[] => {
+        const results: Event[] = [];
+        for (const d of docs) {
+          if (!seenIds.has(d.id)) {
+            seenIds.add(d.id);
+            results.push(convertEventDocToEvent(d.id, d.data() as EventDocument));
+          }
+        }
+        return results;
+      };
 
-      const allScheduledEvents = scheduledSnapshot.docs
-        .map((doc) => convertEventDocToEvent(doc.id, doc.data() as EventDocument))
-        .sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
+      const allActiveEvents = [
+        ...dedupe(activeHostSnap.docs),
+        ...dedupe(activeGuestSnap.docs),
+      ].sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
 
-      // Filter SCHEDULED events to only include those in early access window
-      const earlyAccessEvents = allScheduledEvents.filter((event) =>
-        isEventInEarlyAccess(event)
-      );
+      const allScheduledEvents = [
+        ...dedupe(scheduledHostSnap.docs),
+        ...dedupe(scheduledGuestSnap.docs),
+      ].sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
 
-      // Combine active events with early access events
-      const allAvailableEvents = [...allActiveEvents, ...earlyAccessEvents];
+      // Filter SCHEDULED events to only those in the early access window
+      const earlyAccessEvents = allScheduledEvents.filter(isEventInEarlyAccess);
 
-      // Filter to events user can access based on access rules
-      // Uses canUserAccessEvent which handles both active events and early access
-      return allAvailableEvents.filter((event) =>
+      // Apply final client-side access check (handles early access timing, etc.)
+      return [...allActiveEvents, ...earlyAccessEvents].filter((event) =>
         canUserAccessEvent(event, userChapterId)
       );
     } catch (error: any) {

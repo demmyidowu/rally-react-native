@@ -630,6 +630,9 @@ async function loadUser(uid: string): Promise<User> {
     isEmailVerified: data.isEmailVerified,
     onboardingComplete: data.onboardingComplete,
     fcmToken: data.fcmToken,
+    carColor: data.carColor,
+    carMake: data.carMake,
+    carModel: data.carModel,
     createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
     updatedAt: data.updatedAt?.toDate().toISOString() || new Date().toISOString(),
   };

@@ -74,7 +74,7 @@ async function calculateDrivingETA(
  * Firebase Admin SDK messaging.send() only works with raw FCM tokens, not Expo tokens —
  * Expo tokens must be routed through Expo's push service at exp.host.
  */
-async function sendPushNotification(
+export async function sendPushNotification(
   userId: string,
   title: string,
   body: string,

@@ -22,7 +22,7 @@
  *
  * 5. Emergency Handling (emergencyHandler.ts)
  *    - handleEmergencyRide: Process emergency ride requests
- *    - monitorEmergencyRideStatus: Alert if emergency ride unassigned too long
+ *    - checkUnassignedEmergency: Cloud Task — alert if emergency ride unassigned after 2 min
  *
  * @see https://firebase.google.com/docs/functions
  */
@@ -138,11 +138,10 @@ export { monitorDDActivity } from "./ddMonitoring";
 export { handleEmergencyRide } from "./emergencyHandler";
 
 /**
- * Monitors emergency ride assignment status
- * Trigger: onCreate rides/{rideId} where isEmergency === true
- * Waits 2 minutes, then alerts if still unassigned
+ * Cloud Task: alerts if emergency ride is still unassigned after 2 minutes
+ * Dispatched by handleEmergencyRide with a 120-second delay
  */
-export { monitorEmergencyRideStatus } from "./emergencyHandler";
+export { checkUnassignedEmergency } from "./emergencyHandler";
 
 // ============================================================================
 // UTILITY EXPORTS

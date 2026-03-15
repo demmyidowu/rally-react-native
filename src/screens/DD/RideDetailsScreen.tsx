@@ -4,29 +4,69 @@
  * Shows ride details with DD-specific actions.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { DDScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectRides, selectLoading, markEnRoute, markArrived, completeRide } from '../../store/slices/ridesSlice';
+import { selectUser } from '../../store/slices/authSlice';
 import { Card, StatusBadge, Button, LoadingSpinner } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
+import { applyAbusePenalty } from '../../services/abuseService';
+import { RideStatus } from '../../models/Ride';
 
 type Props = DDScreenProps<'RideDetails'>;
+
+const ACTIVE_STATUSES = [RideStatus.ASSIGNED, RideStatus.ENROUTE, RideStatus.ARRIVED];
 
 const DDRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   const dispatch = useAppDispatch();
   const { rideId } = route.params;
   const rides = useAppSelector(selectRides);
   const loading = useAppSelector(selectLoading);
+  const currentUser = useAppSelector(selectUser);
   const ride = rides.find(r => r.id === rideId);
+  const [abuseReported, setAbuseReported] = useState(false);
+
+  const handleReportAbuse = () => {
+    if (!ride) return;
+    Alert.alert(
+      'Report as Non-Emergency?',
+      "Are you sure? This will reduce the rider's future ride priority for 7 days.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Report',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await applyAbusePenalty(
+                ride.riderId,
+                ride.id,
+                ride.chapterId ?? '',
+                true,
+                currentUser?.name,
+              );
+              setAbuseReported(true);
+              Alert.alert('Reported', 'Admins have been notified and the penalty has been applied.');
+            } catch (error) {
+              console.error('Failed to report abuse:', error);
+              Alert.alert('Error', 'Failed to submit report. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleNavigate = () => {
     if (!ride) return;
@@ -198,6 +238,13 @@ const DDRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
             />
           </>
         )}
+
+        {ride.isEmergency && ACTIVE_STATUSES.includes(ride.status as RideStatus) && !abuseReported && (
+          <TouchableOpacity style={styles.reportAbuseButton} onPress={handleReportAbuse}>
+            <Ionicons name="flag-outline" size={16} color={colors.error} />
+            <Text style={styles.reportAbuseText}>Report as Non-Emergency</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -344,6 +391,24 @@ const styles = StyleSheet.create({
   imHereButton: {
     marginBottom: spacing.md,
     backgroundColor: colors.success,
+  },
+  reportAbuseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  reportAbuseText: {
+    ...typography.body,
+    color: colors.error,
+    fontWeight: '600',
+    marginLeft: spacing.sm,
   },
 });
 

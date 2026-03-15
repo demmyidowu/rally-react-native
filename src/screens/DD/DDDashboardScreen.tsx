@@ -25,7 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DDScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { selectUser } from '../../store/slices/authSlice';
+import { selectUser, updateUserProfile } from '../../store/slices/authSlice';
 import { selectActiveEvent } from '../../store/slices/eventsSlice';
 import {
   selectMyAssignment,
@@ -34,12 +34,13 @@ import {
   selectLoading,
 } from '../../store/slices/ddAssignmentsSlice';
 import {
-  selectActiveRides,
   fetchActiveRides,
   selectQueue,
   markEnRoute,
   markArrived,
   completeRide,
+  fetchDDCurrentRide,
+  selectDDCurrentRide,
 } from '../../store/slices/ridesSlice';
 import { completeRideForDD } from '../../store/slices/ddAssignmentsSlice';
 import { Card, RideCard, StatusBadge, CarInfoModal, CarInfo, ActionCard, SectionHeader, StatusIndicator } from '../../components';
@@ -53,16 +54,13 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const user = useAppSelector(selectUser);
   const activeEvent = useAppSelector(selectActiveEvent);
   const myAssignment = useAppSelector(selectMyAssignment);
-  const allActiveRides = useAppSelector(selectActiveRides);
+  const currentRide = useAppSelector(selectDDCurrentRide);
   const rideQueue = useAppSelector(selectQueue); // Pending rides waiting for assignment
   const loading = useAppSelector(selectLoading);
 
-  // Filter rides to those assigned to this DD
-  const assignedRideIds = myAssignment?.currentRides ?? [];
-  const assignedRides = allActiveRides.filter(r => assignedRideIds.includes(r.id));
-
   const [isActive, setIsActive] = useState(myAssignment?.isActive ?? false);
   const [showCarModal, setShowCarModal] = useState(false);
+  const [abuseReportedRideIds, setAbuseReportedRideIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Fetch active event and DD's assignment in one call
@@ -73,6 +71,7 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
         chapterId: user.chapterId,
       });
       dispatch(fetchMyActiveEventAssignment({ ddId: user.id, chapterId: user.chapterId }));
+      dispatch(fetchDDCurrentRide(user.id));
       // Also fetch all active rides so DDs can see the queue
       dispatch(fetchActiveRides());
     }
@@ -97,6 +96,7 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
     if (user?.id) {
       console.log('[DDDashboard] Refreshing - user.id:', user.id);
       dispatch(fetchMyActiveEventAssignment({ ddId: user.id, chapterId: user.chapterId }));
+      dispatch(fetchDDCurrentRide(user.id));
       dispatch(fetchActiveRides());
     }
   };
@@ -160,17 +160,23 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const handleCarInfoConfirm = (carInfo: CarInfo) => {
     setShowCarModal(false);
     confirmToggle(true, carInfo);
+    // Persist car info so modal is skipped on future active toggles
+    if (user?.id) {
+      dispatch(updateUserProfile({
+        userId: user.id,
+        data: {
+          carColor: carInfo.color,
+          carMake: carInfo.make,
+          carModel: carInfo.model,
+        },
+      }));
+    }
   };
 
   const handleCarInfoCancel = () => {
     setShowCarModal(false);
     // Don't toggle - user cancelled
   };
-
-  // Get current ride (DD can only have 1 at a time)
-  const currentRide = assignedRides?.find(
-    (r) => r.status === 'assigned' || r.status === 'enroute' || r.status === 'arrived'
-  );
 
   // Handle marking ride as "on the way"
   const handleMarkEnRoute = async () => {
@@ -200,7 +206,7 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
     Alert.alert(
       'Complete Ride',
-      'Are you sure you want to mark this ride as complete?',
+      'Only complete the ride after you have dropped off the passenger at their destination.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -266,6 +272,32 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
         ]
       );
     }
+  };
+
+  // Handle reporting an emergency ride as non-emergency abuse
+  const handleReportAbuse = (ride: typeof currentRide) => {
+    if (!ride) return;
+    Alert.alert(
+      'Report Non-Emergency?',
+      "This will apply a 7-day priority penalty to the rider. Only do this if the emergency button was clearly misused.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Report Abuse',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { applyAbusePenalty } = await import('../../services/abuseService');
+              await applyAbusePenalty(ride.riderId, ride.id, ride.chapterId ?? user?.chapterId ?? '', true, user?.name);
+              setAbuseReportedRideIds(prev => new Set(prev).add(ride.id));
+              Alert.alert('Reported', 'Admins have been notified and the penalty has been applied.');
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to report abuse');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -339,6 +371,16 @@ const DDDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onComplete={handleCompleteRide}
               onGetDirections={handleGetDirections}
             />
+            {currentRide.isEmergency && !abuseReportedRideIds.has(currentRide.id) && (
+              <TouchableOpacity
+                style={styles.reportAbuseInlineBanner}
+                onPress={() => handleReportAbuse(currentRide)}
+              >
+                <Ionicons name="flag-outline" size={14} color={colors.error} />
+                <Text style={styles.reportAbuseInlineText}>Not a real emergency? Report it</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.error} />
+              </TouchableOpacity>
+            )}
           </Card>
         )}
 
@@ -633,6 +675,26 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  reportAbuseInlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+    backgroundColor: `${colors.error}12`,
+    borderWidth: 1,
+    borderColor: `${colors.error}40`,
+    gap: spacing.xs,
+  },
+  reportAbuseInlineText: {
+    ...typography.caption,
+    color: colors.error,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
   },
 });
 
