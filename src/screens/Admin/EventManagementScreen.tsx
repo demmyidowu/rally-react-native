@@ -4,7 +4,7 @@
  * Lists all events with options to create, edit, and manage.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -36,13 +36,26 @@ const EventManagementScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     if (user?.chapterId) {
-      dispatch(fetchAllEvents());
+      dispatch(fetchAllEvents(user.chapterId));
     }
   }, [dispatch, user?.chapterId]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('CreateEvent')}
+          style={{ marginRight: 16 }}
+        >
+          <Text style={{ fontSize: 28, color: colors.primary, lineHeight: 32 }}>+</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
+
   const handleRefresh = () => {
     if (user?.chapterId) {
-      dispatch(fetchAllEvents());
+      dispatch(fetchAllEvents(user.chapterId));
     }
   };
 

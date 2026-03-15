@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DDScreenProps } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { selectRides, selectLoading, markEnRoute, completeRide } from '../../store/slices/ridesSlice';
+import { selectRides, selectLoading, markEnRoute, markArrived, completeRide } from '../../store/slices/ridesSlice';
 import { Card, StatusBadge, Button, LoadingSpinner } from '../../components';
 import { colors, spacing, typography, borderRadius } from '../../components/theme';
 
@@ -51,7 +51,7 @@ const DDRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleImHere = async () => {
     try {
-      // Note: arrived status may need to be added to the slice if needed
+      await dispatch(markArrived(rideId)).unwrap();
       Alert.alert('Notified!', 'The rider has been notified that you have arrived.');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to notify rider');
@@ -61,7 +61,7 @@ const DDRideDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleComplete = () => {
     Alert.alert(
       'Complete Ride',
-      'Mark this ride as complete?',
+      'Only mark complete after you have safely dropped off your rider at their destination.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

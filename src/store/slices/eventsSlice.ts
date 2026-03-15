@@ -148,17 +148,23 @@ export const fetchActiveEvent = createAsyncThunk(
   }
 );
 
-// Fetch all events
+// Fetch all events for a specific chapter
 export const fetchAllEvents = createAsyncThunk(
   'events/fetchAllEvents',
-  async (_, { rejectWithValue }) => {
+  async (chapterId: string, { rejectWithValue }) => {
     try {
-      const q = query(collection(db, 'events'), orderBy('startTime', 'desc'));
+      const q = query(
+        collection(db, 'events'),
+        where('chapterId', '==', chapterId)
+      );
 
       const snapshot = await getDocs(q);
       const events: Event[] = snapshot.docs.map((doc) =>
         convertEventDocToEvent(doc.id, doc.data() as EventDocument)
       );
+
+      // Sort client-side to avoid requiring a composite index on (chapterId, startTime)
+      events.sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
 
       return events;
     } catch (error: any) {

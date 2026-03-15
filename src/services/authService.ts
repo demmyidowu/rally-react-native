@@ -30,7 +30,6 @@ import {
   UserCredential,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import crashlytics from '@react-native-firebase/crashlytics';
 import { auth, db } from '../config/firebase';
 import { User, UserRole, isEduEmail } from '../models/User';
 import { AuthError } from '../types/errors';
@@ -221,8 +220,6 @@ export async function signIn(email: string, password: string): Promise<AuthResul
       user.isEmailVerified = true;
     }
 
-    crashlytics().setUserId(user.id);
-
     return {
       userId: userCredential.user.uid,
       user,
@@ -402,6 +399,7 @@ export function onAuthStateChange(callback: AuthStateCallback): () => void {
           role: UserRole.MEMBER,
           classYear: new Date().getFullYear(),
           isEmailVerified: firebaseUser.emailVerified,
+          onboardingComplete: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -630,6 +628,7 @@ async function loadUser(uid: string): Promise<User> {
     role: data.role as UserRole,
     classYear: data.classYear,
     isEmailVerified: data.isEmailVerified,
+    onboardingComplete: data.onboardingComplete,
     fcmToken: data.fcmToken,
     createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
     updatedAt: data.updatedAt?.toDate().toISOString() || new Date().toISOString(),

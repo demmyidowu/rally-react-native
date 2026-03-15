@@ -46,11 +46,7 @@ const SLIDES: Slide[] = [
   },
 ];
 
-interface Props {
-  navigation: { replace: (screen: string) => void };
-}
-
-const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
+const OnboardingScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -63,7 +59,7 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         data: { onboardingComplete: true },
       }));
     }
-    navigation.replace('Main');
+    // AppNavigator auto-switches to Main when onboardingComplete = true
   };
 
   const handleNext = () => {

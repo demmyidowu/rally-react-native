@@ -4,7 +4,7 @@
  * Main admin dashboard with event overview, stats, and quick actions.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import { selectActiveEvent, fetchActiveEvent, selectLoading as selectEventsLoadi
 import { Card, StatusBadge, ActionCard, SectionHeader } from '../../components';
 import { colors, spacing, typography, borderRadius, borders } from '../../components/theme';
 import { AdminAlert, AlertType } from '../../models/AdminAlert';
-import { fetchAdminAlerts } from '../../services';
+import { observeAdminAlerts } from '../../services';
 
 type Props = AdminScreenProps<'AdminDashboard'>;
 
@@ -100,34 +100,22 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
 
-  /**
-   * Load recent alerts for the chapter
-   */
-  const loadAlerts = useCallback(async () => {
-    if (!user?.chapterId) return;
-
-    try {
-      setLoadingAlerts(true);
-      const recentAlerts = await fetchAdminAlerts(user.chapterId, false);
-      setAlerts(recentAlerts.slice(0, 5)); // Show 5 most recent
-    } catch (error) {
-      console.error('Failed to fetch alerts:', error);
-    } finally {
-      setLoadingAlerts(false);
-    }
-  }, [user?.chapterId]);
-
   useEffect(() => {
-    if (user?.chapterId) {
-      dispatch(fetchActiveEvent(user.chapterId));
-      loadAlerts();
-    }
-  }, [dispatch, user?.chapterId, loadAlerts]);
+    if (!user?.chapterId) return;
+    dispatch(fetchActiveEvent(user.chapterId));
+
+    const unsubscribe = observeAdminAlerts(user.chapterId, (newAlerts) => {
+      setAlerts(newAlerts.slice(0, 5));
+      setLoadingAlerts(false);
+    });
+
+    return () => unsubscribe();
+  }, [dispatch, user?.chapterId]);
 
   const handleRefresh = () => {
     if (user?.chapterId) {
       dispatch(fetchActiveEvent(user.chapterId));
-      loadAlerts();
+      // alerts are live — no manual reload needed
     }
   };
 

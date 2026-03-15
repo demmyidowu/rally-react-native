@@ -13,8 +13,6 @@ import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
-import crashlytics from '@react-native-firebase/crashlytics';
-
 // Store
 import { store, persistor } from './src/store';
 import { useAppSelector, useAppDispatch } from './src/store/hooks';
@@ -51,7 +49,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
   }
 
   componentDidCatch(error: Error, _info: React.ErrorInfo) {
-    crashlytics().recordError(error);
+    console.error('Uncaught render error:', error);
   }
 
   render() {
