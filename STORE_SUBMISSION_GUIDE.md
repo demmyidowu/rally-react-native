@@ -488,3 +488,110 @@ eas submit --platform android
 ```
 
 > EAS Submit can upload directly to both stores. You still need to complete the store listing fields manually in App Store Connect / Play Console.
+
+---
+
+## PART 4 — Responding to Guideline 2.1 (Information Needed) Rejections
+
+> **When to use this section:** Apple rejected the submission under Guideline 2.1 and requested additional information via App Store Connect. Copy the reply template below into the "Reply to Apple" text box in App Store Connect. Attach the screen recording separately as a file upload.
+
+---
+
+### Reply Template (copy-paste into App Store Connect)
+
+```
+Thank you for your review. Please find responses to each requested item below.
+
+---
+
+**Item 1 — Screen Recording**
+
+[ACTION REQUIRED — see recording script below. Attach the video file separately in App Store Connect before submitting this reply.]
+
+Screen recording script (record on a physical device, not a simulator):
+1. Launch RallyRide from the home screen (cold launch).
+2. Show the registration screen — enter a .edu email address (or demonstrate the sign-up flow with a test account).
+3. Log in with existing test credentials (see Item 3 for credentials).
+4. Tap "Request a Ride" — the location permission prompt will appear; grant it.
+5. Show the notification permission prompt (appears on first launch or after clearing permissions).
+6. Complete the full rider flow: submit a ride request → wait in queue → receive the ride-assigned push notification → view assigned DD details.
+7. Log out and log in as a DD (test credentials in Item 3).
+8. Toggle DD status to Active.
+9. Accept an assigned ride → tap "Mark En Route" (one-time location captured here) → tap "Mark Arrived".
+10. Show the Emergency button flow: tap Emergency → confirm → observe admin alert notification.
+11. Log in as Admin → show the Admin Dashboard: create an event, view member list, assign a DD.
+12. Navigate to Profile → Settings → Delete Account to show the account deletion flow.
+
+---
+
+**Item 2 — App Purpose**
+
+RallyRide is a designated driver coordination app built exclusively for college Greek life chapters (fraternities and sororities). It solves the problem of uncoordinated, unsafe ride arrangements during chapter events by providing a structured, real-time queue system. Riders submit pickup requests; volunteer chapter members serving as designated drivers are automatically assigned based on shortest estimated wait time. The app enforces university email verification (.edu domain) to restrict access to verified college students only. Features include: priority-based ride queue, emergency escalation with admin alerts, push notifications for ride status, one-time location capture for pickup/ETA, and an admin dashboard for event and DD management.
+
+---
+
+**Item 3 — Test Credentials & Reviewer Instructions**
+
+Please use the following credentials to explore the app. Three roles are available:
+
+**Rider account:**
+- Email: reviewer.rider@ksu.edu
+- Password: ReviewRally2024!
+
+**Designated Driver (DD) account:**
+- Email: reviewer.dd@ksu.edu
+- Password: ReviewRally2024!
+
+**Admin account:**
+- Email: reviewer.admin@ksu.edu
+- Password: ReviewRally2024!
+
+Reviewer notes:
+- The app requires a .edu email to register. The test accounts above are pre-created and bypass the email verification step.
+- To test the full ride flow, log in as the Rider, request a ride, then switch to the DD account and accept it.
+- To test admin features, log in as Admin and navigate to the Admin Dashboard.
+- Push notifications require a physical device. On a simulator, notification banners will not appear, but notification state is reflected inside the app.
+- Location permissions are requested once, when the rider submits their first ride request. Grant "Allow Once" or "While Using" — background location is never requested.
+
+---
+
+**Item 4 — External Services**
+
+The following third-party services are integrated into RallyRide:
+
+- **Firebase Authentication (Google)** — user login, .edu email verification, session management.
+- **Firebase Firestore (Google)** — primary database storing users, rides, events, and chapter data.
+- **Firebase Cloud Functions (Google)** — server-side logic: ride queue processing, annual year-transition tasks, admin alert triggers.
+- **Firebase Cloud Messaging / FCM (Google)** — delivery of push notifications (ride assignments, status updates, emergency alerts).
+- **Expo Push Notification Service** — notification token routing layer for React Native / Expo apps; forwards tokens to FCM.
+- **Google Maps Platform — Distance Matrix API** — calculates ETA between a designated driver's current location and the rider's pickup location.
+
+No analytics, advertising, or data-broker services are used.
+
+---
+
+**Item 5 — Regional Differences**
+
+RallyRide functions consistently across all regions and countries. There are no region-specific features, content restrictions, or geo-fenced capabilities. The app is currently marketed to US college students but imposes no technical geo-restrictions — all features are available globally to any user with a valid .edu email address.
+
+---
+
+**Item 6 — Regulated Industry**
+
+RallyRide does not operate in a regulated industry. It is a voluntary, community-organized coordination tool — not a commercial transportation service. Designated drivers are volunteer members of the same private chapter; no payment, compensation, or commercial exchange occurs. RallyRide is not subject to transportation network company (TNC) licensing, financial services regulation, healthcare regulation, or any other industry-specific compliance requirements. No professional credentials are required to operate the app.
+
+---
+
+Please let us know if any additional information is needed. We are happy to provide further clarification or an updated build.
+```
+
+---
+
+### Checklist Before Submitting the Reply
+
+- [ ] Screen recording filmed on a physical device (not simulator)
+- [ ] Recording covers all 12 steps listed in Item 1
+- [ ] Video file attached in App Store Connect before sending reply
+- [ ] Test accounts (reviewer.rider, reviewer.dd, reviewer.admin) are active in Firebase
+- [ ] Reply text pasted into the App Store Connect "Reply to Apple" box
+- [ ] Resubmit the build (or submit a new build) after sending the reply if required

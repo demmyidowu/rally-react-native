@@ -66,3 +66,6 @@ scripts/
 .vscode/
 *.swp
 *.swo
+
+# Store
+store_submission_guide.md
