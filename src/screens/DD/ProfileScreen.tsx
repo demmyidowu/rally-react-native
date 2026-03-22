@@ -149,7 +149,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                 await deleteUser(currentUser);
                             }
 
-                            Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+                            dispatch(signOut());
                         } catch (error: any) {
                             // If re-auth required
                             if (error.code === 'auth/requires-recent-login') {
